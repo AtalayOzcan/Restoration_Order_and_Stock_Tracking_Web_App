@@ -15,9 +15,11 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data
         public DbSet<Order> OrderItems { get; set; }
 
         public DbSet<Payment> Payments { get; set; }
+
         public RestaurantDbContext(DbContextOptions options) : base(options)
         {
         }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Table>(entity =>
