@@ -12,7 +12,7 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data
 
         public DbSet<MenuItem> MenuItems { get; set; }
 
-        public DbSet<Order> OrderItems { get; set; }
+        public DbSet<OrderItem> OrderItems { get; set; }
 
         public DbSet<Payment> Payments { get; set; }
 
