@@ -55,6 +55,11 @@
                 <span class="nav-icon">🍕</span>
                 <span class="nav-text">Menü</span>
             </a>
+            <a class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Category" ? "active" : "")"
+               asp-controller="Category" asp-action="Index">
+                <span class="nav-icon">🍕</span>
+                <span class="nav-text">Kategori</span>
+            </a>
 
             <a class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Stock" ? "active" : "")"
                asp-controller="Stock" asp-action="Index">

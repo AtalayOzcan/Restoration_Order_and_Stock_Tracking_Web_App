@@ -1,0 +1,268 @@
+﻿@model Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models.MenuItem
+@{
+    ViewData["Title"] = Model.MenuItemName + " — Detay";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section Styles {
+    <style>
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.75rem;
+            flex-wrap: wrap;
+            gap: .75rem;
+        }
+
+        .page-title {
+            font-family: 'Syne',sans-serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .page-subtitle {
+            font-size: .85rem;
+            opacity: .55;
+            margin-top: .15rem;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        @@media (max-width:600px) {
+            .detail-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .detail-card {
+            background: var(--card-bg,rgba(255,255,255,.04));
+            border: 1px solid var(--border,rgba(255,255,255,.08));
+            border-radius: 16px;
+            padding: 1.5rem;
+        }
+
+        [data-theme="light"] .detail-card {
+            background: #fff;
+            border-color: #e5e7eb;
+            box-shadow: 0 1px 8px rgba(0,0,0,.06);
+        }
+
+        .detail-card-wide {
+            grid-column: 1/-1;
+        }
+
+        .info-label {
+            font-size: .72rem;
+            opacity: .45;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            margin-bottom: .3rem;
+        }
+
+        .info-value {
+            font-size: 1.05rem;
+            font-weight: 600;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: .3rem;
+            padding: .25rem .7rem;
+            border-radius: 999px;
+            font-size: .75rem;
+            font-weight: 600;
+        }
+
+        .pill-green {
+            background: rgba(16,185,129,.15);
+            color: #10b981;
+        }
+
+        .pill-red {
+            background: rgba(239,68,68,.15);
+            color: #ef4444;
+        }
+
+        .pill-amber {
+            background: rgba(245,158,11,.15);
+            color: #f59e0b;
+        }
+
+        .pill-indigo {
+            background: rgba(99,102,241,.15);
+            color: #818cf8;
+        }
+
+        [data-theme="light"] .pill-green {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        [data-theme="light"] .pill-red {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        [data-theme="light"] .pill-amber {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        [data-theme="light"] .pill-indigo {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            padding: .55rem 1.1rem;
+            border-radius: 10px;
+            font-size: .85rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all .18s;
+            text-decoration: none;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: inherit;
+            border: 1px solid var(--border,rgba(255,255,255,.12));
+        }
+
+            .btn-ghost:hover {
+                background: rgba(255,255,255,.06);
+            }
+
+        [data-theme="light"] .btn-ghost:hover {
+            background: #f3f4f6;
+        }
+
+        .btn-edit {
+            background: rgba(245,158,11,.12);
+            color: #f59e0b;
+            border: 1px solid rgba(245,158,11,.2);
+        }
+
+            .btn-edit:hover {
+                background: rgba(245,158,11,.25);
+            }
+
+        .desc-box {
+            background: rgba(255,255,255,.03);
+            border: 1px solid rgba(255,255,255,.07);
+            border-radius: 10px;
+            padding: 1rem;
+            font-size: .9rem;
+            line-height: 1.6;
+            margin-top: .5rem;
+        }
+
+        [data-theme="light"] .desc-box {
+            background: #f9fafb;
+            border-color: #e5e7eb;
+        }
+
+        .price-big {
+            font-size: 2rem;
+            font-weight: 800;
+            font-family: 'Syne',sans-serif;
+            color: #6366f1;
+        }
+    </style>
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">🍽️ @Model.MenuItemName</h1>
+        <div class="page-subtitle">Ürün Detayı • #@Model.MenuItemId</div>
+    </div>
+    <div style="display:flex;gap:.6rem;">
+        <a asp-action="Index" class="btn btn-ghost">← Menü</a>
+        <a asp-action="Edit" asp-route-id="@Model.MenuItemId" class="btn btn-edit">✏️ Düzenle</a>
+    </div>
+</div>
+
+<div class="detail-grid">
+    <div class="detail-card">
+        <div class="info-label">Fiyat</div>
+        <div class="price-big">₺@Model.MenuItemPrice.ToString("N2")</div>
+    </div>
+
+    <div class="detail-card">
+        <div class="info-label">Kategori</div>
+        <div class="info-value" style="margin-top:.3rem;">
+            <span class="pill pill-indigo">@Model.Category?.CategoryName</span>
+        </div>
+    </div>
+
+    <div class="detail-card">
+        <div class="info-label">Satış Durumu</div>
+        <div style="margin-top:.4rem;">
+            @if (Model.IsAvailable)
+            {
+                <span class="pill pill-green">✓ Satışa Açık</span>
+            }
+            else
+            {
+
+                <span class="pill pill-red">✗ Satışa Kapalı</span>
+            }
+        </div>
+    </div>
+
+    <div class="detail-card">
+        <div class="info-label">Stok</div>
+        <div style="margin-top:.4rem;">
+            @if (Model.TrackStock)
+            {
+                <span class="pill @(Model.StockQuantity < 5 ? "pill-red" : Model.StockQuantity < 15 ? "pill-amber" : "pill-green")">
+                    @Model.StockQuantity adet
+                </span>
+            }
+            else
+            {
+                <span style="opacity:.4;">Stok takibi yok</span>
+            }
+        </div>
+    </div>
+
+    <div class="detail-card">
+        <div class="info-label">Eklenme Tarihi</div>
+        <div class="info-value">@Model.MenuItemCreatedTime.ToLocalTime().ToString("dd MMM yyyy HH:mm")</div>
+    </div>
+
+    <div class="detail-card">
+        <div class="info-label">Stok Takibi</div>
+        <div style="margin-top:.4rem;">
+            @if (Model.TrackStock)
+            {
+                <span class="pill pill-green">Aktif</span>
+            }
+            else
+            {
+
+                <span class="pill pill-red">Pasif</span>
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Description))
+    {
+        <div class="detail-card detail-card-wide">
+            <div class="info-label">Açıklama</div>
+            <div class="desc-box">@Model.Description</div>
+        </div>
+    }
+</div>

@@ -1,0 +1,807 @@
+﻿@model IEnumerable<Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models.Category>
+@{
+    ViewData["Title"] = "Kategoriler";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section Styles {
+    <style>
+        /* ── Page Shell ────────────────────────────────────────────── */
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.75rem;
+            flex-wrap: wrap;
+            gap: .75rem;
+        }
+
+        .page-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .page-subtitle {
+            font-size: .85rem;
+            opacity: .55;
+            margin-top: .15rem;
+        }
+
+        /* ── Card ──────────────────────────────────────────────────── */
+        .card {
+            background: var(--card-bg, rgba(255,255,255,.04));
+            border: 1px solid var(--border, rgba(255,255,255,.08));
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        [data-theme="light"] .card {
+            background: #fff;
+            border-color: #e5e7eb;
+            box-shadow: 0 1px 8px rgba(0,0,0,.06);
+        }
+
+        /* ── Table ─────────────────────────────────────────────────── */
+        .ros-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .9rem;
+        }
+
+            .ros-table thead tr {
+                border-bottom: 2px solid var(--border, rgba(255,255,255,.1));
+            }
+
+            .ros-table thead th {
+                padding: .9rem 1.1rem;
+                text-align: left;
+                font-size: .75rem;
+                letter-spacing: .06em;
+                text-transform: uppercase;
+                opacity: .5;
+                font-weight: 600;
+            }
+
+            .ros-table tbody tr {
+                border-bottom: 1px solid var(--border, rgba(255,255,255,.05));
+                transition: background .15s;
+            }
+
+                .ros-table tbody tr:last-child {
+                    border-bottom: none;
+                }
+
+                .ros-table tbody tr:hover {
+                    background: rgba(99,102,241,.06);
+                }
+
+        [data-theme="light"] .ros-table tbody tr:hover {
+            background: #f5f5ff;
+        }
+
+        .ros-table td {
+            padding: .85rem 1.1rem;
+            vertical-align: middle;
+        }
+
+        /* ── Badges ────────────────────────────────────────────────── */
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: .3rem;
+            padding: .25rem .7rem;
+            border-radius: 999px;
+            font-size: .75rem;
+            font-weight: 600;
+        }
+
+        .pill-green {
+            background: rgba(16,185,129,.15);
+            color: #10b981;
+        }
+
+        .pill-red {
+            background: rgba(239,68,68,.15);
+            color: #ef4444;
+        }
+
+        .pill-indigo {
+            background: rgba(99,102,241,.15);
+            color: #818cf8;
+        }
+
+        [data-theme="light"] .pill-green {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        [data-theme="light"] .pill-red {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        [data-theme="light"] .pill-indigo {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        /* ── Buttons ───────────────────────────────────────────────── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            padding: .55rem 1.1rem;
+            border-radius: 10px;
+            font-size: .85rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all .18s;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: #6366f1;
+            color: #fff;
+        }
+
+            .btn-primary:hover {
+                background: #4f46e5;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(99,102,241,.4);
+            }
+
+        .btn-ghost {
+            background: transparent;
+            color: inherit;
+            border: 1px solid var(--border, rgba(255,255,255,.12));
+        }
+
+            .btn-ghost:hover {
+                background: rgba(255,255,255,.06);
+            }
+
+        [data-theme="light"] .btn-ghost:hover {
+            background: #f3f4f6;
+        }
+
+        .btn-edit {
+            background: rgba(245,158,11,.12);
+            color: #f59e0b;
+            border: 1px solid rgba(245,158,11,.2);
+        }
+
+            .btn-edit:hover {
+                background: rgba(245,158,11,.25);
+            }
+
+        .btn-delete {
+            background: rgba(239,68,68,.12);
+            color: #ef4444;
+            border: 1px solid rgba(239,68,68,.2);
+        }
+
+            .btn-delete:hover {
+                background: rgba(239,68,68,.25);
+            }
+
+        .btn-detail {
+            background: rgba(99,102,241,.12);
+            color: #818cf8;
+            border: 1px solid rgba(99,102,241,.2);
+        }
+
+            .btn-detail:hover {
+                background: rgba(99,102,241,.25);
+            }
+
+        .btn-sm {
+            padding: .35rem .75rem;
+            font-size: .8rem;
+        }
+
+        /* ── Modal ─────────────────────────────────────────────────── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.55);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+            .modal-overlay.open {
+                display: flex;
+                animation: fadeIn .2s ease;
+            }
+        @@keyframes fadeIn {
+            from
+
+        {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+
+        }
+
+        .modal {
+            background: var(--modal-bg, #1e1f2e);
+            border: 1px solid var(--border, rgba(255,255,255,.1));
+            border-radius: 20px;
+            width: 100%;
+            max-width: 480px;
+            padding: 2rem;
+            box-shadow: 0 24px 60px rgba(0,0,0,.5);
+            animation: slideUp .25s ease;
+        }
+
+        [data-theme="light"] .modal {
+            background: #fff;
+            border-color: #e5e7eb;
+            box-shadow: 0 24px 60px rgba(0,0,0,.15);
+        }
+        @@keyframes slideUp {
+            from
+
+        {
+            transform: translateY(20px);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.4rem;
+            cursor: pointer;
+            opacity: .5;
+            transition: opacity .15s;
+            color: inherit;
+            line-height: 1;
+        }
+
+            .modal-close:hover {
+                opacity: 1;
+            }
+
+        /* ── Form ──────────────────────────────────────────────────── */
+        .form-group {
+            margin-bottom: 1.1rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: .8rem;
+            font-weight: 600;
+            opacity: .65;
+            margin-bottom: .4rem;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: .65rem .9rem;
+            background: rgba(255,255,255,.06);
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: 10px;
+            color: inherit;
+            font-size: .9rem;
+            font-family: 'DM Sans', sans-serif;
+            transition: border-color .15s, box-shadow .15s;
+            box-sizing: border-box;
+        }
+
+        [data-theme="light"] .form-control {
+            background: #f9fafb;
+            border-color: #d1d5db;
+            color: #111827;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99,102,241,.2);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: .75rem;
+        }
+
+        /* Toggle switch */
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            margin-top: .2rem;
+        }
+
+        .toggle-label-text {
+            font-size: .9rem;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+            .toggle-switch input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,.12);
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background .2s;
+        }
+
+        [data-theme="light"] .toggle-slider {
+            background: #d1d5db;
+        }
+
+        .toggle-slider:before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 3px;
+            top: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform .2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,.3);
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: #6366f1;
+        }
+
+            .toggle-switch input:checked + .toggle-slider:before {
+                transform: translateX(20px);
+            }
+
+        /* Modal footer */
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: .6rem;
+            margin-top: 1.5rem;
+        }
+
+        /* ── Toast ─────────────────────────────────────────────────── */
+        .toast-container {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: .6rem;
+        }
+
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            padding: .85rem 1.2rem;
+            border-radius: 12px;
+            font-size: .88rem;
+            font-weight: 500;
+            min-width: 260px;
+            animation: toastIn .25s ease;
+            box-shadow: 0 8px 24px rgba(0,0,0,.3);
+        }
+        @@keyframes toastIn {
+            from
+
+        {
+            transform: translateX(40px);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        }
+
+        .toast-success {
+            background: #065f46;
+            color: #d1fae5;
+            border: 1px solid #10b981;
+        }
+
+        .toast-error {
+            background: #7f1d1d;
+            color: #fee2e2;
+            border: 1px solid #ef4444;
+        }
+
+        [data-theme="light"] .toast-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        [data-theme="light"] .toast-error {
+            background: #fee2e2;
+            color: #7f1d1d;
+        }
+
+        /* ── Confirm dialog ────────────────────────────────────────── */
+        .confirm-modal {
+            max-width: 380px;
+            text-align: center;
+        }
+
+        .confirm-icon {
+            font-size: 2.5rem;
+            margin-bottom: .75rem;
+        }
+
+        .confirm-text {
+            font-size: .95rem;
+            opacity: .8;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+
+        .confirm-name {
+            font-weight: 700;
+            opacity: 1;
+            color: #ef4444;
+        }
+
+        /* ── Empty state ───────────────────────────────────────────── */
+        .empty-state {
+            text-align: center;
+            padding: 3.5rem 1rem;
+            opacity: .4;
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: .75rem;
+        }
+
+        .empty-state-text {
+            font-size: 1rem;
+        }
+    </style>
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">🗂️ Kategoriler</h1>
+        <div class="page-subtitle">@Model.Count() kategori listeleniyor</div>
+    </div>
+    <button class="btn btn-primary" onclick="openCreateModal()">
+        ＋ Yeni Kategori
+    </button>
+</div>
+
+<div class="card">
+    <table class="ros-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Kategori Adı</th>
+                <th>Sıra</th>
+                <th>Ürün Sayısı</th>
+                <th>Durum</th>
+                <th>İşlemler</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!Model.Any())
+            {
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🗂️</div>
+                            <div class="empty-state-text">Henüz kategori eklenmemiş.</div>
+                        </div>
+                    </td>
+                </tr>
+            }
+            @foreach (var cat in Model)
+            {
+                <tr>
+                    <td style="opacity:.4; font-size:.8rem;">@cat.CategoryId</td>
+                    <td style="font-weight:600;">@cat.CategoryName</td>
+                    <td><span class="pill pill-indigo">@cat.CategorySortOrder</span></td>
+                    <td><span class="pill pill-indigo">@(cat.MenuItems?.Count ?? 0) ürün</span></td>
+                    <td>
+                        @if (cat.IsActive)
+                        {
+                            <span class="pill pill-green">✓ Aktif</span>
+                        }
+                        else
+                        {
+                            <span class="pill pill-red">✗ Pasif</span>
+                        }
+                    </td>
+                    <td>
+                        <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
+                            <a asp-action="Detail" asp-route-id="@cat.CategoryId" class="btn btn-detail btn-sm">👁 Detay</a>
+                            <button class="btn btn-edit btn-sm"
+                                    onclick="openEditModal(@cat.CategoryId)">
+                                ✏️ Düzenle
+                            </button>
+                            <button class="btn btn-delete btn-sm"
+                                    onclick="openDeleteModal(@cat.CategoryId, '@cat.CategoryName')">
+                                🗑 Sil
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<div class="modal-overlay" id="createModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title">➕ Yeni Kategori</h2>
+            <button class="modal-close" onclick="closeModal('createModal')">✕</button>
+        </div>
+        <form id="createForm">
+            @Html.AntiForgeryToken()
+            <div class="form-group">
+                <label class="form-label">Kategori Adı *</label>
+                <input type="text" id="create_categoryName" class="form-control" placeholder="örn. İçecekler" maxlength="100" required />
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Sıralama</label>
+                    <input type="number" id="create_sortOrder" class="form-control" value="0" min="0" />
+                </div>
+                <div class="form-group" style="display:flex;flex-direction:column;justify-content:flex-end;">
+                    <label class="form-label">Durum</label>
+                    <div class="toggle-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="create_isActive" checked />
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="toggle-label-text">Aktif</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" onclick="closeModal('createModal')">İptal</button>
+                <button type="submit" class="btn btn-primary">💾 Kaydet</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="editModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title">✏️ Kategori Düzenle</h2>
+            <button class="modal-close" onclick="closeModal('editModal')">✕</button>
+        </div>
+        <form id="editForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="edit_id" />
+            <div class="form-group">
+                <label class="form-label">Kategori Adı *</label>
+                <input type="text" id="edit_categoryName" class="form-control" maxlength="100" required />
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Sıralama</label>
+                    <input type="number" id="edit_sortOrder" class="form-control" min="0" />
+                </div>
+                <div class="form-group" style="display:flex;flex-direction:column;justify-content:flex-end;">
+                    <label class="form-label">Durum</label>
+                    <div class="toggle-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="edit_isActive" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="toggle-label-text">Aktif</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" onclick="closeModal('editModal')">İptal</button>
+                <button type="submit" class="btn btn-primary">💾 Güncelle</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<div class="modal-overlay" id="deleteModal">
+    <div class="modal confirm-modal">
+        <div class="confirm-icon">🗑️</div>
+        <h2 class="modal-title" style="margin-bottom:.5rem;">Silme Onayı</h2>
+        <p class="confirm-text">
+            <span class="confirm-name" id="delete_name"></span> kategorisini silmek istediğinizden emin misiniz?
+            <br><small>Bu işlem geri alınamaz.</small>
+        </p>
+        <form id="deleteForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="delete_id" />
+            <div style="display:flex;justify-content:center;gap:.75rem;">
+                <button type="button" class="btn btn-ghost" onclick="closeModal('deleteModal')">İptal</button>
+                <button type="submit" class="btn btn-delete">🗑 Evet, Sil</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<div class="toast-container" id="toastContainer"></div>
+
+@section Scripts {
+    <script>
+        // ── Helpers ─────────────────────────────────────────────────
+        function openModal(id)  { document.getElementById(id).classList.add('open'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+        // Close on overlay click
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', e => {
+                if (e.target === overlay) overlay.classList.remove('open');
+            });
+        });
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span><span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3500);
+        }
+
+        function getToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]').value;
+        }
+
+        // ── Create ───────────────────────────────────────────────────
+        function openCreateModal() {
+            document.getElementById('createForm').reset();
+            document.getElementById('create_isActive').checked = true;
+            openModal('createModal');
+        }
+
+        document.getElementById('createForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const btn = e.submitter;
+            btn.disabled = true;
+
+            const body = new URLSearchParams({
+                categoryName: document.getElementById('create_categoryName').value,
+                categorySortOrder: document.getElementById('create_sortOrder').value,
+                isActive: document.getElementById('create_isActive').checked,
+                __RequestVerificationToken: getToken()
+            });
+
+            const res  = await fetch('/Category/Create', { method: 'POST', body });
+            const data = await res.json();
+
+            btn.disabled = false;
+            if (data.success) {
+                closeModal('createModal');
+                showToast(data.message, 'success');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast(data.message, 'error');
+            }
+        });
+
+        // ── Edit ─────────────────────────────────────────────────────
+        async function openEditModal(id) {
+            const res  = await fetch(`/Category/GetById/${id}`);
+            const data = await res.json();
+            if (!data.success) { showToast('Veri alınamadı.', 'error'); return; }
+
+            document.getElementById('edit_id').value           = data.categoryId;
+            document.getElementById('edit_categoryName').value = data.categoryName;
+            document.getElementById('edit_sortOrder').value    = data.categorySortOrder;
+            document.getElementById('edit_isActive').checked   = data.isActive;
+            openModal('editModal');
+        }
+
+        document.getElementById('editForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const btn = e.submitter;
+            btn.disabled = true;
+
+            const id   = document.getElementById('edit_id').value;
+            const body = new URLSearchParams({
+                id,
+                categoryName: document.getElementById('edit_categoryName').value,
+                categorySortOrder: document.getElementById('edit_sortOrder').value,
+                isActive: document.getElementById('edit_isActive').checked,
+                __RequestVerificationToken: getToken()
+            });
+
+            const res  = await fetch('/Category/Edit', { method: 'POST', body });
+            const data = await res.json();
+
+            btn.disabled = false;
+            if (data.success) {
+                closeModal('editModal');
+                showToast(data.message, 'success');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast(data.message, 'error');
+            }
+        });
+
+        // ── Delete ───────────────────────────────────────────────────
+        function openDeleteModal(id, name) {
+            document.getElementById('delete_id').value = id;
+            document.getElementById('delete_name').textContent = name;
+            openModal('deleteModal');
+        }
+
+        document.getElementById('deleteForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const btn = e.submitter;
+            btn.disabled = true;
+
+            const id   = document.getElementById('delete_id').value;
+            const body = new URLSearchParams({
+                id,
+                __RequestVerificationToken: getToken()
+            });
+
+            const res  = await fetch('/Category/Delete', { method: 'POST', body });
+            const data = await res.json();
+
+            btn.disabled = false;
+            if (data.success) {
+                closeModal('deleteModal');
+                showToast(data.message, 'success');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                closeModal('deleteModal');
+                showToast(data.message, 'error');
+            }
+        });
+    </script>
+}

@@ -14,6 +14,7 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC
             builder.Services.AddDbContext<RestaurantDbContext>(options =>
             {
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+    
             });
 
 

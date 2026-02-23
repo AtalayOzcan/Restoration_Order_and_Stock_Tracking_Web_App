@@ -1,0 +1,978 @@
+﻿@model IEnumerable<Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models.MenuItem>
+@{
+    ViewData["Title"] = "Menü Ürünleri";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var categories = ViewData["Categories"] as List<Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models.Category>
+                  ?? new List<Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models.Category>();
+}
+
+@section Styles {
+    <style>
+        /* ── Page ──────────────────────────────────────────────────── */
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.75rem;
+            flex-wrap: wrap;
+            gap: .75rem;
+        }
+
+        .page-title {
+            font-family: 'Syne',sans-serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .page-subtitle {
+            font-size: .85rem;
+            opacity: .55;
+            margin-top: .15rem;
+        }
+
+        /* ── Filter bar ────────────────────────────────────────────── */
+        .filter-bar {
+            display: flex;
+            gap: .6rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.25rem;
+            align-items: center;
+        }
+
+        .filter-input {
+            padding: .5rem .9rem;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,.1);
+            background: rgba(255,255,255,.05);
+            color: inherit;
+            font-family: 'DM Sans',sans-serif;
+            font-size: .88rem;
+            outline: none;
+            transition: border-color .15s;
+        }
+
+        [data-theme="light"] .filter-input {
+            background: #f9fafb;
+            border-color: #d1d5db;
+            color: #111827;
+        }
+
+        .filter-input:focus {
+            border-color: #6366f1;
+        }
+
+        .filter-input.wide {
+            min-width: 220px;
+        }
+
+        /* ── Card / Table ──────────────────────────────────────────── */
+        .card {
+            background: var(--card-bg,rgba(255,255,255,.04));
+            border: 1px solid var(--border,rgba(255,255,255,.08));
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        [data-theme="light"] .card {
+            background: #fff;
+            border-color: #e5e7eb;
+            box-shadow: 0 1px 8px rgba(0,0,0,.06);
+        }
+
+        .ros-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .9rem;
+        }
+
+            .ros-table thead tr {
+                border-bottom: 2px solid var(--border,rgba(255,255,255,.1));
+            }
+
+            .ros-table thead th {
+                padding: .9rem 1.1rem;
+                text-align: left;
+                font-size: .75rem;
+                letter-spacing: .06em;
+                text-transform: uppercase;
+                opacity: .5;
+                font-weight: 600;
+            }
+
+            .ros-table tbody tr {
+                border-bottom: 1px solid var(--border,rgba(255,255,255,.05));
+                transition: background .15s;
+            }
+
+                .ros-table tbody tr:last-child {
+                    border-bottom: none;
+                }
+
+                .ros-table tbody tr:hover {
+                    background: rgba(99,102,241,.06);
+                }
+
+        [data-theme="light"] .ros-table tbody tr:hover {
+            background: #f5f5ff;
+        }
+
+        .ros-table td {
+            padding: .85rem 1.1rem;
+            vertical-align: middle;
+        }
+
+        /* ── Pills ─────────────────────────────────────────────────── */
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: .3rem;
+            padding: .25rem .7rem;
+            border-radius: 999px;
+            font-size: .75rem;
+            font-weight: 600;
+        }
+
+        .pill-green {
+            background: rgba(16,185,129,.15);
+            color: #10b981;
+        }
+
+        .pill-red {
+            background: rgba(239,68,68,.15);
+            color: #ef4444;
+        }
+
+        .pill-amber {
+            background: rgba(245,158,11,.15);
+            color: #f59e0b;
+        }
+
+        .pill-indigo {
+            background: rgba(99,102,241,.15);
+            color: #818cf8;
+        }
+
+        [data-theme="light"] .pill-green {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        [data-theme="light"] .pill-red {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        [data-theme="light"] .pill-amber {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        [data-theme="light"] .pill-indigo {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        /* ── Buttons ───────────────────────────────────────────────── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            padding: .55rem 1.1rem;
+            border-radius: 10px;
+            font-size: .85rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all .18s;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: #6366f1;
+            color: #fff;
+        }
+
+            .btn-primary:hover {
+                background: #4f46e5;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(99,102,241,.4);
+            }
+
+        .btn-ghost {
+            background: transparent;
+            color: inherit;
+            border: 1px solid var(--border,rgba(255,255,255,.12));
+        }
+
+            .btn-ghost:hover {
+                background: rgba(255,255,255,.06);
+            }
+
+        [data-theme="light"] .btn-ghost:hover {
+            background: #f3f4f6;
+        }
+
+        .btn-edit {
+            background: rgba(245,158,11,.12);
+            color: #f59e0b;
+            border: 1px solid rgba(245,158,11,.2);
+        }
+
+            .btn-edit:hover {
+                background: rgba(245,158,11,.25);
+            }
+
+        .btn-delete {
+            background: rgba(239,68,68,.12);
+            color: #ef4444;
+            border: 1px solid rgba(239,68,68,.2);
+        }
+
+            .btn-delete:hover {
+                background: rgba(239,68,68,.25);
+            }
+
+        .btn-detail {
+            background: rgba(99,102,241,.12);
+            color: #818cf8;
+            border: 1px solid rgba(99,102,241,.2);
+        }
+
+            .btn-detail:hover {
+                background: rgba(99,102,241,.25);
+            }
+
+        .btn-sm {
+            padding: .35rem .75rem;
+            font-size: .8rem;
+        }
+
+        /* ── Modal ─────────────────────────────────────────────────── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.55);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+            .modal-overlay.open {
+                display: flex;
+                animation: fadeIn .2s ease;
+            }
+        @@keyframes fadeIn {
+            from
+
+        {
+            opacity: 0
+        }
+
+        to {
+            opacity: 1
+        }
+
+        }
+
+        .modal {
+            background: var(--modal-bg,#1e1f2e);
+            border: 1px solid var(--border,rgba(255,255,255,.1));
+            border-radius: 20px;
+            width: 100%;
+            max-width: 540px;
+            padding: 2rem;
+            box-shadow: 0 24px 60px rgba(0,0,0,.5);
+            animation: slideUp .25s ease;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        [data-theme="light"] .modal {
+            background: #fff;
+            border-color: #e5e7eb;
+            box-shadow: 0 24px 60px rgba(0,0,0,.15);
+        }
+        @@keyframes slideUp {
+            from
+
+        {
+            transform: translateY(20px);
+            opacity: 0
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1
+        }
+
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-title {
+            font-family: 'Syne',sans-serif;
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.4rem;
+            cursor: pointer;
+            opacity: .5;
+            transition: opacity .15s;
+            color: inherit;
+            line-height: 1;
+        }
+
+            .modal-close:hover {
+                opacity: 1;
+            }
+
+        /* ── Form ──────────────────────────────────────────────────── */
+        .form-group {
+            margin-bottom: 1.1rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: .8rem;
+            font-weight: 600;
+            opacity: .65;
+            margin-bottom: .4rem;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: .65rem .9rem;
+            background: rgba(255,255,255,.06);
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: 10px;
+            color: inherit;
+            font-size: .9rem;
+            font-family: 'DM Sans',sans-serif;
+            transition: border-color .15s,box-shadow .15s;
+            box-sizing: border-box;
+        }
+
+        [data-theme="light"] .form-control {
+            background: #f9fafb;
+            border-color: #d1d5db;
+            color: #111827;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99,102,241,.2);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: .75rem;
+        }
+
+        .form-row-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: .75rem;
+        }
+
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            margin-top: .2rem;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+            .toggle-switch input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,.12);
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background .2s;
+        }
+
+        [data-theme="light"] .toggle-slider {
+            background: #d1d5db;
+        }
+
+        .toggle-slider:before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 3px;
+            top: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform .2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,.3);
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: #6366f1;
+        }
+
+            .toggle-switch input:checked + .toggle-slider:before {
+                transform: translateX(20px);
+            }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: .6rem;
+            margin-top: 1.5rem;
+        }
+
+        /* ── Toast ─────────────────────────────────────────────────── */
+        .toast-container {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: .6rem;
+        }
+
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            padding: .85rem 1.2rem;
+            border-radius: 12px;
+            font-size: .88rem;
+            font-weight: 500;
+            min-width: 260px;
+            animation: toastIn .25s ease;
+            box-shadow: 0 8px 24px rgba(0,0,0,.3);
+        }
+        @@keyframes toastIn {
+            from
+
+        {
+            transform: translateX(40px);
+            opacity: 0
+        }
+
+        to {
+            transform: translateX(0);
+            opacity: 1
+        }
+
+        }
+
+        .toast-success {
+            background: #065f46;
+            color: #d1fae5;
+            border: 1px solid #10b981;
+        }
+
+        .toast-error {
+            background: #7f1d1d;
+            color: #fee2e2;
+            border: 1px solid #ef4444;
+        }
+
+        [data-theme="light"] .toast-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        [data-theme="light"] .toast-error {
+            background: #fee2e2;
+            color: #7f1d1d;
+        }
+
+        /* ── Confirm ───────────────────────────────────────────────── */
+        .confirm-modal {
+            max-width: 380px;
+            text-align: center;
+        }
+
+        .confirm-icon {
+            font-size: 2.5rem;
+            margin-bottom: .75rem;
+        }
+
+        .confirm-text {
+            font-size: .95rem;
+            opacity: .8;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+
+        .confirm-name {
+            font-weight: 700;
+            opacity: 1;
+            color: #ef4444;
+        }
+
+        /* ── Empty ─────────────────────────────────────────────────── */
+        .empty-state {
+            text-align: center;
+            padding: 3.5rem 1rem;
+            opacity: .4;
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: .75rem;
+        }
+
+        /* ── Category group header ─────────────────────────────────── */
+        .cat-group-row td {
+            padding: .55rem 1.1rem;
+            font-size: .78rem;
+            font-weight: 700;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            opacity: .5;
+            background: rgba(99,102,241,.04);
+        }
+    </style>
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">🍕 Menü Ürünleri</h1>
+        <div class="page-subtitle">@Model.Count() ürün listeleniyor</div>
+    </div>
+    <button class="btn btn-primary" onclick="openCreateModal()">
+        ＋ Yeni Ürün
+    </button>
+</div>
+
+<div class="filter-bar">
+    <input type="text" id="searchInput" class="filter-input wide" placeholder="🔍 Ürün ara…" oninput="filterTable()" />
+    <select id="catFilter" class="filter-input" onchange="filterTable()">
+        <option value="">Tüm Kategoriler</option>
+        @foreach (var cat in categories)
+        {
+            <option value="@cat.CategoryId">@cat.CategoryName</option>
+        }
+    </select>
+    <select id="statusFilter" class="filter-input" onchange="filterTable()">
+        <option value="">Tüm Durumlar</option>
+        <option value="1">Mevcut</option>
+        <option value="0">Mevcut Değil</option>
+    </select>
+</div>
+
+<div class="card">
+    <table class="ros-table" id="menuTable">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Ürün Adı</th>
+                <th>Kategori</th>
+                <th>Fiyat</th>
+                <th>Stok</th>
+                <th>Durum</th>
+                <th>İşlemler</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!Model.Any())
+            {
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🍽️</div>
+                            <div>Henüz ürün eklenmemiş.</div>
+                        </div>
+                    </td>
+                </tr>
+            }
+            @foreach (var item in Model)
+            {
+                <tr data-cat="@item.CategoryId" data-status="@(item.IsAvailable ? 1 : 0)" data-name="@item.MenuItemName.ToLower()">
+                    <td style="opacity:.4; font-size:.8rem;">@item.MenuItemId</td>
+                    <td>
+                        <div style="font-weight:600;">@item.MenuItemName</div>
+                        @if (!string.IsNullOrEmpty(item.Description))
+                        {
+                            <div style="font-size:.78rem; opacity:.45; margin-top:.15rem;">@(item.Description.Length > 50 ? item.Description.Substring(0, 50) + "…" : item.Description)</div>
+                        }
+                    </td>
+                    <td><span class="pill pill-indigo">@item.Category?.CategoryName</span></td>
+                    <td><strong>₺@item.MenuItemPrice.ToString("N2")</strong></td>
+                    <td>
+                        @if (item.TrackStock)
+                        {
+                            <span class="pill @(item.StockQuantity < 5 ? "pill-red" : item.StockQuantity < 15 ? "pill-amber" : "pill-green")">
+                                @item.StockQuantity adet
+                            </span>
+                        }
+                        else
+                        {
+                            <span style="opacity:.35; font-size:.8rem;">—</span>
+                        }
+                    </td>
+                    <td>
+                        @if (item.IsAvailable)
+                        {
+                            <span class="pill pill-green">✓ Mevcut</span>
+                        }
+                        else
+                        {
+
+                            <span class="pill pill-red">✗ Yok</span>
+                        }
+                    </td>
+                    <td>
+                        <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
+                            <a asp-controller="Menu" asp-action="Detail" asp-route-id="@item.MenuItemId" class="btn btn-detail btn-sm">👁</a>
+                            <button class="btn btn-edit btn-sm" onclick="openEditModal(@item.MenuItemId)">✏️</button>
+                            <button class="btn btn-delete btn-sm" onclick="openDeleteModal(@item.MenuItemId, '@item.MenuItemName')">🗑</button>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+<div class="modal-overlay" id="createModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title">➕ Yeni Ürün</h2>
+            <button class="modal-close" onclick="closeModal('createModal')">✕</button>
+        </div>
+        <form id="createForm">
+            @Html.AntiForgeryToken()
+
+            <div class="form-group">
+                <label class="form-label">Ürün Adı *</label>
+                <input type="text" id="c_name" class="form-control" placeholder="örn. Türk Kahvesi" maxlength="200" required />
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Kategori *</label>
+                    <select id="c_categoryId" class="form-control" required>
+                        <option value="">— Seçin —</option>
+                        @foreach (var cat in categories)
+                        {
+                            <option value="@cat.CategoryId">@cat.CategoryName</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Fiyat (₺) *</label>
+                    <input type="number" id="c_price" class="form-control" min="0" step="0.01" placeholder="0.00" required />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Açıklama</label>
+                <textarea id="c_description" class="form-control" rows="2" placeholder="Kısa açıklama (isteğe bağlı)"></textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Stok Miktarı</label>
+                    <input type="number" id="c_stock" class="form-control" value="0" min="0" />
+                </div>
+                <div class="form-group" style="display:flex;flex-direction:column;justify-content:flex-end;">
+                    <label class="form-label">Stok Takibi</label>
+                    <div class="toggle-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="c_trackStock" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="toggle-label-text">Takip Et</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Satışa Açık</label>
+                <div class="toggle-group">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="c_isAvailable" checked />
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label-text">Mevcut</span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" onclick="closeModal('createModal')">İptal</button>
+                <button type="submit" class="btn btn-primary">💾 Kaydet</button>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="modal-overlay" id="editModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title">✏️ Ürün Düzenle</h2>
+            <button class="modal-close" onclick="closeModal('editModal')">✕</button>
+        </div>
+        <form id="editForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="e_id" />
+
+            <div class="form-group">
+                <label class="form-label">Ürün Adı *</label>
+                <input type="text" id="e_name" class="form-control" maxlength="200" required />
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Kategori *</label>
+                    <select id="e_categoryId" class="form-control" required>
+                        @foreach (var cat in categories)
+                        {
+                            <option value="@cat.CategoryId">@cat.CategoryName</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Fiyat (₺) *</label>
+                    <input type="number" id="e_price" class="form-control" min="0" step="0.01" required />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Açıklama</label>
+                <textarea id="e_description" class="form-control" rows="2"></textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Stok Miktarı</label>
+                    <input type="number" id="e_stock" class="form-control" min="0" />
+                </div>
+                <div class="form-group" style="display:flex;flex-direction:column;justify-content:flex-end;">
+                    <label class="form-label">Stok Takibi</label>
+                    <div class="toggle-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="e_trackStock" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="toggle-label-text">Takip Et</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Satışa Açık</label>
+                <div class="toggle-group">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="e_isAvailable" />
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label-text">Mevcut</span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" onclick="closeModal('editModal')">İptal</button>
+                <button type="submit" class="btn btn-primary">💾 Güncelle</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<div class="modal-overlay" id="deleteModal">
+    <div class="modal confirm-modal">
+        <div class="confirm-icon">🗑️</div>
+        <h2 class="modal-title" style="margin-bottom:.5rem;">Silme Onayı</h2>
+        <p class="confirm-text">
+            <span class="confirm-name" id="d_name"></span> ürününü silmek istediğinizden emin misiniz?
+            <br><small>Bu işlem geri alınamaz.</small>
+        </p>
+        <form id="deleteForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="d_id" />
+            <div style="display:flex;justify-content:center;gap:.75rem;">
+                <button type="button" class="btn btn-ghost" onclick="closeModal('deleteModal')">İptal</button>
+                <button type="submit" class="btn btn-delete">🗑 Evet, Sil</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+@section Scripts {
+    <script>
+        // ── Helpers ─────────────────────────────────────────────────
+        function openModal(id)  { document.getElementById(id).classList.add('open'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+        document.querySelectorAll('.modal-overlay').forEach(o =>
+            o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); })
+        );
+
+        function showToast(msg, type = 'success') {
+            const c = document.getElementById('toastContainer');
+            const t = document.createElement('div');
+            t.className = `toast toast-${type}`;
+            t.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span><span>${msg}</span>`;
+            c.appendChild(t);
+            setTimeout(() => t.remove(), 3500);
+        }
+
+        function getToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]').value;
+        }
+
+        // ── Filter ───────────────────────────────────────────────────
+        function filterTable() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const cat    = document.getElementById('catFilter').value;
+            const status = document.getElementById('statusFilter').value;
+
+            document.querySelectorAll('#menuTable tbody tr[data-name]').forEach(row => {
+                const matchName   = row.dataset.name.includes(search);
+                const matchCat    = !cat    || row.dataset.cat    === cat;
+                const matchStatus = !status || row.dataset.status === status;
+                row.style.display = (matchName && matchCat && matchStatus) ? '' : 'none';
+            });
+        }
+
+        // ── Create ───────────────────────────────────────────────────
+        function openCreateModal() {
+            document.getElementById('createForm').reset();
+            document.getElementById('c_isAvailable').checked = true;
+            openModal('createModal');
+        }
+
+        document.getElementById('createForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const btn = e.submitter; btn.disabled = true;
+
+            const body = new URLSearchParams({
+                menuItemName:  document.getElementById('c_name').value,
+                categoryId:    document.getElementById('c_categoryId').value,
+                menuItemPrice: document.getElementById('c_price').value,
+                description:   document.getElementById('c_description').value,
+                stockQuantity: document.getElementById('c_stock').value,
+                trackStock:    document.getElementById('c_trackStock').checked,
+                isAvailable:   document.getElementById('c_isAvailable').checked,
+                __RequestVerificationToken: getToken()
+            });
+
+            const res  = await fetch('/Menu/Create', { method:'POST', body });
+            const data = await res.json();
+            btn.disabled = false;
+
+            if (data.success) {
+                closeModal('createModal');
+                showToast(data.message, 'success');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast(data.message, 'error');
+            }
+        });
+
+        // ── Edit ─────────────────────────────────────────────────────
+        async function openEditModal(id) {
+            const res  = await fetch(`/Menu/GetById/${id}`);
+            const data = await res.json();
+            if (!data.success) { showToast('Veri alınamadı.', 'error'); return; }
+
+            document.getElementById('e_id').value          = data.menuItemId;
+            document.getElementById('e_name').value        = data.menuItemName;
+            document.getElementById('e_categoryId').value  = data.categoryId;
+            document.getElementById('e_price').value       = data.menuItemPrice;
+            document.getElementById('e_description').value = data.description ?? '';
+            document.getElementById('e_stock').value       = data.stockQuantity;
+            document.getElementById('e_trackStock').checked  = data.trackStock;
+            document.getElementById('e_isAvailable').checked = data.isAvailable;
+            openModal('editModal');
+        }
+
+        document.getElementById('editForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const btn = e.submitter; btn.disabled = true;
+
+            const body = new URLSearchParams({
+                id:            document.getElementById('e_id').value,
+                menuItemName:  document.getElementById('e_name').value,
+                categoryId:    document.getElementById('e_categoryId').value,
+                menuItemPrice: document.getElementById('e_price').value,
+                description:   document.getElementById('e_description').value,
+                stockQuantity: document.getElementById('e_stock').value,
+                trackStock:    document.getElementById('e_trackStock').checked,
+                isAvailable:   document.getElementById('e_isAvailable').checked,
+                __RequestVerificationToken: getToken()
+            });
+
+            const res  = await fetch('/Menu/Edit', { method:'POST', body });
+            const data = await res.json();
+            btn.disabled = false;
+
+            if (data.success) {
+                closeModal('editModal');
+                showToast(data.message, 'success');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast(data.message, 'error');
+            }
+        });
+
+        // ── Delete ───────────────────────────────────────────────────
+        function openDeleteModal(id, name) {
+            document.getElementById('d_id').value = id;
+            document.getElementById('d_name').textContent = name;
+            openModal('deleteModal');
+        }
+
+        document.getElementById('deleteForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const btn = e.submitter; btn.disabled = true;
+
+            const body = new URLSearchParams({
+                id: document.getElementById('d_id').value,
+                __RequestVerificationToken: getToken()
+            });
+
+            const res  = await fetch('/Menu/Delete', { method:'POST', body });
+            const data = await res.json();
+            btn.disabled = false;
+
+            if (data.success) {
+                closeModal('deleteModal');
+                showToast(data.message, 'success');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                closeModal('deleteModal');
+                showToast(data.message, 'error');
+            }
+        });
+    </script>
+}

@@ -1,0 +1,258 @@
+﻿@{
+    ViewData["Title"] = "Yeni Kategori";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section Styles {
+    <style>
+        .form-page {
+            max-width: 520px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.75rem;
+            flex-wrap: wrap;
+            gap: .75rem;
+        }
+
+        .page-title {
+            font-family: 'Syne',sans-serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .card {
+            background: var(--card-bg,rgba(255,255,255,.04));
+            border: 1px solid var(--border,rgba(255,255,255,.08));
+            border-radius: 16px;
+            padding: 2rem;
+        }
+
+        [data-theme="light"] .card {
+            background: #fff;
+            border-color: #e5e7eb;
+            box-shadow: 0 1px 8px rgba(0,0,0,.06);
+        }
+
+        .form-group {
+            margin-bottom: 1.1rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: .8rem;
+            font-weight: 600;
+            opacity: .65;
+            margin-bottom: .4rem;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: .65rem .9rem;
+            background: rgba(255,255,255,.06);
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: 10px;
+            color: inherit;
+            font-size: .9rem;
+            font-family: 'DM Sans',sans-serif;
+            transition: border-color .15s,box-shadow .15s;
+            box-sizing: border-box;
+        }
+
+        [data-theme="light"] .form-control {
+            background: #f9fafb;
+            border-color: #d1d5db;
+            color: #111827;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99,102,241,.2);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: .75rem;
+        }
+
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            margin-top: .2rem;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+            .toggle-switch input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,.12);
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background .2s;
+        }
+
+        [data-theme="light"] .toggle-slider {
+            background: #d1d5db;
+        }
+
+        .toggle-slider:before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 3px;
+            top: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform .2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,.3);
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: #6366f1;
+        }
+
+            .toggle-switch input:checked + .toggle-slider:before {
+                transform: translateX(20px);
+            }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            padding: .55rem 1.1rem;
+            border-radius: 10px;
+            font-size: .85rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all .18s;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: #6366f1;
+            color: #fff;
+        }
+
+            .btn-primary:hover {
+                background: #4f46e5;
+            }
+
+        .btn-ghost {
+            background: transparent;
+            color: inherit;
+            border: 1px solid var(--border,rgba(255,255,255,.12));
+        }
+
+            .btn-ghost:hover {
+                background: rgba(255,255,255,.06);
+            }
+
+        [data-theme="light"] .btn-ghost:hover {
+            background: #f3f4f6;
+        }
+
+        .alert {
+            padding: .85rem 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            font-size: .88rem;
+        }
+
+        .alert-error {
+            background: rgba(239,68,68,.12);
+            border: 1px solid rgba(239,68,68,.25);
+            color: #ef4444;
+        }
+    </style>
+}
+
+<div class="form-page">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">➕ Yeni Kategori</h1>
+        </div>
+        <a asp-action="Index" class="btn btn-ghost">← Geri</a>
+    </div>
+
+    <div class="card">
+        <form asp-action="Create" method="post" id="createForm">
+            @Html.AntiForgeryToken()
+
+            <div id="alertBox" class="alert alert-error" style="display:none;"></div>
+
+            <div class="form-group">
+                <label class="form-label">Kategori Adı *</label>
+                <input type="text" name="categoryName" class="form-control" placeholder="örn. İçecekler" maxlength="100" required />
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Sıralama</label>
+                    <input type="number" name="categorySortOrder" class="form-control" value="0" min="0" />
+                </div>
+                <div class="form-group" style="display:flex; flex-direction:column; justify-content:flex-end;">
+                    <label class="form-label">Durum</label>
+                    <div class="toggle-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" name="isActive" value="true" checked />
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span>Aktif</span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:.6rem; margin-top:1.5rem;">
+                <a asp-action="Index" class="btn btn-ghost">İptal</a>
+                <button type="submit" class="btn btn-primary">💾 Kaydet</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.getElementById('createForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const btn = e.submitter; btn.disabled = true;
+            const form = e.target;
+            const body = new URLSearchParams(new FormData(form));
+
+            const res  = await fetch('/Category/Create', { method:'POST', body });
+            const data = await res.json();
+            btn.disabled = false;
+
+            if (data.success) {
+                window.location.href = '/Category';
+            } else {
+                const box = document.getElementById('alertBox');
+                box.textContent = data.message;
+                box.style.display = 'block';
+            }
+        });
+    </script>
+}

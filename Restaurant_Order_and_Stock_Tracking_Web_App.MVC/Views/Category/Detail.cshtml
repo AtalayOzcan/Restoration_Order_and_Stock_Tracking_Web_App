@@ -1,0 +1,277 @@
+﻿@model Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models.Category
+@{
+    ViewData["Title"] = Model.CategoryName + " — Detay";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section Styles {
+    <style>
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.75rem;
+            flex-wrap: wrap;
+            gap: .75rem;
+        }
+
+        .page-title {
+            font-family: 'Syne',sans-serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .page-subtitle {
+            font-size: .85rem;
+            opacity: .55;
+            margin-top: .15rem;
+        }
+
+        .info-card {
+            background: var(--card-bg, rgba(255,255,255,.04));
+            border: 1px solid var(--border, rgba(255,255,255,.08));
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit,minmax(160px,1fr));
+            gap: 1rem;
+        }
+
+        [data-theme="light"] .info-card {
+            background: #fff;
+            border-color: #e5e7eb;
+            box-shadow: 0 1px 8px rgba(0,0,0,.06);
+        }
+
+        .info-item-label {
+            font-size: .72rem;
+            opacity: .45;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            margin-bottom: .25rem;
+        }
+
+        .info-item-value {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .card {
+            background: var(--card-bg, rgba(255,255,255,.04));
+            border: 1px solid var(--border, rgba(255,255,255,.08));
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        [data-theme="light"] .card {
+            background: #fff;
+            border-color: #e5e7eb;
+        }
+
+        .ros-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .9rem;
+        }
+
+            .ros-table thead tr {
+                border-bottom: 2px solid var(--border, rgba(255,255,255,.1));
+            }
+
+            .ros-table thead th {
+                padding: .9rem 1.1rem;
+                text-align: left;
+                font-size: .75rem;
+                letter-spacing: .06em;
+                text-transform: uppercase;
+                opacity: .5;
+                font-weight: 600;
+            }
+
+            .ros-table tbody tr {
+                border-bottom: 1px solid var(--border, rgba(255,255,255,.05));
+                transition: background .15s;
+            }
+
+                .ros-table tbody tr:last-child {
+                    border-bottom: none;
+                }
+
+                .ros-table tbody tr:hover {
+                    background: rgba(99,102,241,.06);
+                }
+
+            .ros-table td {
+                padding: .85rem 1.1rem;
+                vertical-align: middle;
+            }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: .3rem;
+            padding: .25rem .7rem;
+            border-radius: 999px;
+            font-size: .75rem;
+            font-weight: 600;
+        }
+
+        .pill-green {
+            background: rgba(16,185,129,.15);
+            color: #10b981;
+        }
+
+        .pill-red {
+            background: rgba(239,68,68,.15);
+            color: #ef4444;
+        }
+
+        .pill-indigo {
+            background: rgba(99,102,241,.15);
+            color: #818cf8;
+        }
+
+        [data-theme="light"] .pill-green {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        [data-theme="light"] .pill-red {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        [data-theme="light"] .pill-indigo {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            padding: .55rem 1.1rem;
+            border-radius: 10px;
+            font-size: .85rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all .18s;
+            text-decoration: none;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: inherit;
+            border: 1px solid var(--border, rgba(255,255,255,.12));
+        }
+
+            .btn-ghost:hover {
+                background: rgba(255,255,255,.06);
+            }
+
+        [data-theme="light"] .btn-ghost:hover {
+            background: #f3f4f6;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            opacity: .4;
+        }
+
+        .empty-state-icon {
+            font-size: 2.5rem;
+            margin-bottom: .5rem;
+        }
+    </style>
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">🗂️ @Model.CategoryName</h1>
+        <div class="page-subtitle">Kategori Detayı</div>
+    </div>
+    <a asp-action="Index" class="btn btn-ghost">← Geri</a>
+</div>
+
+<div class="info-card">
+    <div>
+        <div class="info-item-label">Kategori ID</div>
+        <div class="info-item-value">#@Model.CategoryId</div>
+    </div>
+    <div>
+        <div class="info-item-label">Sıralama</div>
+        <div class="info-item-value">@Model.CategorySortOrder</div>
+    </div>
+    <div>
+        <div class="info-item-label">Durum</div>
+        <div class="info-item-value">
+            @if (Model.IsActive)
+            {
+                <span class="pill pill-green">✓ Aktif</span>
+            }
+            else
+            {
+
+                <span class="pill pill-red">✗ Pasif</span>
+            }
+        </div>
+    </div>
+    <div>
+        <div class="info-item-label">Toplam Ürün</div>
+        <div class="info-item-value">@(Model.MenuItems?.Count ?? 0)</div>
+    </div>
+</div>
+
+<div class="card">
+    <div style="padding:1rem 1.1rem; border-bottom:1px solid var(--border, rgba(255,255,255,.08)); font-weight:600;">
+        Bu kategorideki ürünler
+    </div>
+    <table class="ros-table">
+        <thead>
+            <tr>
+                <th>Ürün Adı</th>
+                <th>Fiyat</th>
+                <th>Stok</th>
+                <th>Durum</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.MenuItems == null || !Model.MenuItems.Any())
+            {
+                <tr><td colspan="4"><div class="empty-state"><div class="empty-state-icon">🍽️</div><div>Bu kategoride ürün yok.</div></div></td></tr>
+            }
+            @foreach (var item in Model.MenuItems ?? Enumerable.Empty<Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models.MenuItem>())
+            {
+                <tr>
+                    <td style="font-weight:600;">@item.MenuItemName</td>
+                    <td><span class="pill pill-indigo">₺@item.MenuItemPrice.ToString("N2")</span></td>
+                    <td>
+                        @if (item.TrackStock)
+                        {
+                            <span class="pill @(item.StockQuantity < 5 ? "pill-red" : "pill-green")">@item.StockQuantity adet</span>
+                        }
+                        else
+                        {
+                            <span style="opacity:.4; font-size:.8rem;">Takip edilmiyor</span>
+                        }
+                    </td>
+                    <td>
+                        @if (item.IsAvailable)
+                        {
+                            <span class="pill pill-green">Mevcut</span>
+                        }
+                        else
+                        {
+
+                            <span class="pill pill-red">Mevcut Değil</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
