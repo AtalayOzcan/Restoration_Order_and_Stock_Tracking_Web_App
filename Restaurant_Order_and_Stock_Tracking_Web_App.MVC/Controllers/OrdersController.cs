@@ -18,13 +18,20 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
         // ─────────────────────────────────────────────────────────────
         // GET /Orders
         // ─────────────────────────────────────────────────────────────
-        public async Task<IActionResult> Index(string tab = "active")
+        public async Task<IActionResult> Index(string tab = "active", string? searchTable = null)
         {
             ViewData["Title"] = "Siparişler";
             ViewData["ActiveOrderCount"] = await _db.Orders.CountAsync(o => o.OrderStatus == "open");
             ViewData["ActiveTab"] = tab;
+            ViewBag.SearchTable = searchTable;
 
-            var activeOrders = await _db.Orders
+            // Bugünün başlangıcı (yerel saat → UTC)
+            var localNow = DateTime.Now;
+            var todayLocalStart = new DateTime(localNow.Year, localNow.Month, localNow.Day, 0, 0, 0, DateTimeKind.Local);
+            var todayUtcStart = todayLocalStart.ToUniversalTime();
+
+            // ── FİLTRELENMEMİŞ veriler (summary bar için — aramayla değişmez) ──
+            var allActiveOrders = await _db.Orders
                 .Where(o => o.OrderStatus == "open")
                 .Include(o => o.Table)
                 .Include(o => o.OrderItems)
@@ -32,15 +39,46 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
                 .OrderBy(o => o.OrderOpenedAt)
                 .ToListAsync();
 
-            var pastOrders = await _db.Orders
-                .Where(o => o.OrderStatus == "paid" || o.OrderStatus == "cancelled")
+            var allTodayPastOrders = await _db.Orders
+                .Where(o => (o.OrderStatus == "paid" || o.OrderStatus == "cancelled")
+                            && o.OrderOpenedAt >= todayUtcStart)
+                .ToListAsync();
+
+            ViewBag.AllActiveOrders = allActiveOrders;
+            ViewBag.AllTodayRevenue = allTodayPastOrders.Where(o => o.OrderStatus == "paid").Sum(o => o.OrderTotalAmount);
+            ViewBag.AllTodayPaidCount = allTodayPastOrders.Count(o => o.OrderStatus == "paid");
+
+            // ── FİLTRELENMİŞ veriler (aktif liste — arama varsa filtrelidir) ──
+            var activeOrders = allActiveOrders.ToList(); // zaten çekildi
+
+            // Geçmiş siparişler: sadece bugün AÇILAN (OrderOpenedAt baz alınır)
+            var pastOrdersQuery = _db.Orders
+                .Where(o => (o.OrderStatus == "paid" || o.OrderStatus == "cancelled")
+                            && o.OrderOpenedAt >= todayUtcStart)
                 .Include(o => o.Table)
                 .Include(o => o.OrderItems)
                     .ThenInclude(oi => oi.MenuItem)
                 .Include(o => o.Payments)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTable))
+            {
+                pastOrdersQuery = pastOrdersQuery.Where(o => o.Table != null &&
+                    o.Table.TableName.ToLower().Contains(searchTable.ToLower()));
+            }
+
+            var pastOrders = await pastOrdersQuery
                 .OrderByDescending(o => o.OrderClosedAt)
-                .Take(50)
                 .ToListAsync();
+
+            // Aktif siparişlerde de masa araması uygula
+            if (!string.IsNullOrWhiteSpace(searchTable))
+            {
+                activeOrders = activeOrders
+                    .Where(o => o.Table != null &&
+                        o.Table.TableName.Contains(searchTable, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
 
             ViewBag.ActiveOrders = activeOrders;
             ViewBag.PastOrders = pastOrders;

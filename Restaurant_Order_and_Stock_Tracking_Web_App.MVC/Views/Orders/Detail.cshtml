@@ -8,6 +8,10 @@
     var totalPaid = Model.Payments?.Sum(p => p.PaymentsAmount) ?? 0;
     var remaining = Model.OrderTotalAmount - totalPaid;
 
+    // Durum sıralaması — sadece ileri gidilebilir
+    // pending → preparing → served   (geri alınamaz)
+    int StatusOrder(string s) => s switch { "preparing" => 1, "served" => 2, "cancelled" => 99, _ => 0 };
+
     string StatusClass(string s) => s switch
     {
         "preparing" => "s-preparing",
@@ -33,6 +37,7 @@
 
 @section Styles {
     <style>
+        /* ── LAYOUT ── */
         .detail-layout {
             display: grid;
             grid-template-columns: 1fr 340px;
@@ -46,13 +51,14 @@
             gap: 16px;
         }
 
+        /* ── INFO CARD ── */
         .info-card {
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 14px;
-            padding: 20px;
+            padding: 18px 20px;
             display: grid;
-            grid-template-columns: repeat(auto-fill,minmax(160px,1fr));
+            grid-template-columns: repeat(auto-fill, minmax(140px,1fr));
             gap: 14px;
         }
 
@@ -66,7 +72,7 @@
         }
 
         .info-item-value {
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 600;
         }
 
@@ -77,6 +83,7 @@
                 color: var(--accent);
             }
 
+        /* ── PANEL ── */
         .panel {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -88,7 +95,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 14px 18px;
+            padding: 13px 18px;
             border-bottom: 1px solid var(--border);
         }
 
@@ -98,13 +105,14 @@
             font-weight: 700;
         }
 
+        /* ── ORDER ITEM ROW ── */
         .item-row {
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 12px 18px;
+            padding: 12px 16px;
             border-bottom: 1px solid var(--border);
-            transition: background .15s;
+            transition: background .12s;
         }
 
             .item-row:last-child {
@@ -116,23 +124,8 @@
             }
 
         .item-name {
-            flex: 1;
             font-size: 14px;
             font-weight: 500;
-        }
-
-        .item-qty {
-            font-size: 12px;
-            color: var(--text-muted);
-            min-width: 50px;
-        }
-
-        .item-price {
-            font-family: 'Syne',sans-serif;
-            font-size: 14px;
-            font-weight: 700;
-            min-width: 70px;
-            text-align: right;
         }
 
         .item-note {
@@ -141,14 +134,55 @@
             margin-top: 2px;
         }
 
-        .status-btns {
-            display: flex;
-            gap: 4px;
+        .item-qty {
+            font-size: 12px;
+            color: var(--text-muted);
+            min-width: 30px;
+            text-align: center;
+            flex-shrink: 0;
         }
 
-        .sbtn {
-            padding: 4px 8px;
-            border-radius: 6px;
+        .item-price {
+            font-family: 'Syne',sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            min-width: 72px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        /* ── STATUS FLOW — Tek yönlü ilerleme butonları ── */
+        .status-flow {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            flex-shrink: 0;
+        }
+
+        .sflow-step {
+            display: flex;
+            align-items: center;
+            gap: 0;
+        }
+
+        /* Aktif durum badge */
+        .sflow-current {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 9px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
+
+        /* İleri alma butonu */
+        .sflow-btn {
+            padding: 4px 9px;
+            border-radius: 7px;
             font-size: 10px;
             font-weight: 700;
             border: 1px solid;
@@ -157,45 +191,41 @@
             font-family: 'DM Sans',sans-serif;
             transition: all .15s;
             white-space: nowrap;
+            flex-shrink: 0;
         }
 
-        .sbtn-pending {
-            border-color: var(--border);
-            color: var(--text-muted);
-        }
-
-        .sbtn-preparing {
-            border-color: rgba(234,179,8,.4);
+        .sflow-btn-prepare {
+            border-color: rgba(234,179,8,.45);
             color: #eab308;
         }
 
-        .sbtn-served {
-            border-color: rgba(34,197,94,.4);
+            .sflow-btn-prepare:hover {
+                background: rgba(234,179,8,.12);
+            }
+
+        .sflow-btn-serve {
+            border-color: rgba(34,197,94,.45);
             color: #22c55e;
         }
 
-        .sbtn-cancel {
-            border-color: rgba(239,68,68,.4);
-            color: #ef4444;
+            .sflow-btn-serve:hover {
+                background: rgba(34,197,94,.12);
+            }
+
+        .sflow-arrow {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin: 0 2px;
         }
 
-        .sbtn.current {
-            opacity: .4;
-            cursor: default;
-            pointer-events: none;
-        }
-
-        .sbtn:not(.current):hover {
-            filter: brightness(1.2);
-        }
-
+        /* ── STATUS BADGES ── */
         .status-badge {
             display: inline-block;
             font-size: 10px;
             font-weight: 700;
             letter-spacing: .05em;
             text-transform: uppercase;
-            padding: 3px 8px;
+            padding: 3px 9px;
             border-radius: 20px;
         }
 
@@ -239,6 +269,99 @@
                 background: rgba(239,68,68,.08);
             }
 
+        /* ── ÜRÜN EKLE — Kategori bazlı görsel ── */
+        .add-panel-body {
+            display: flex;
+            flex-direction: column;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .add-cat-header {
+            position: sticky;
+            top: 0;
+            background: var(--surface);
+            padding: 8px 14px 5px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            z-index: 1;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .add-cat-stripe {
+            width: 3px;
+            height: 14px;
+            background: var(--accent);
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .add-cat-name {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            color: var(--accent);
+        }
+
+        .add-items-wrap {
+            padding: 6px 10px 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .add-item-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--surface2);
+            cursor: pointer;
+            transition: border-color .12s;
+        }
+
+            .add-item-row:hover {
+                border-color: var(--accent);
+            }
+
+        .ai-name {
+            flex: 1;
+            font-size: 13px;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+
+        .ai-price {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--accent);
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        .ai-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            font-size: 15px;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+
+        /* ── SAĞ PANEL — ÖDEME ── */
         .pay-panel {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -364,66 +487,7 @@
                 cursor: not-allowed;
             }
 
-        .add-item-list {
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .add-item-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 9px 10px;
-            border-radius: 9px;
-            border: 1px solid var(--border);
-            background: var(--surface2);
-            cursor: pointer;
-            transition: border-color .15s;
-        }
-
-            .add-item-row:hover {
-                border-color: var(--accent);
-            }
-
-        .ai-name {
-            flex: 1;
-            font-size: 13px;
-            font-weight: 500;
-        }
-
-        .ai-price {
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--accent);
-        }
-
-        .ai-btn {
-            width: 26px;
-            height: 26px;
-            border-radius: 6px;
-            background: var(--accent);
-            color: #fff;
-            border: none;
-            font-size: 16px;
-            display: grid;
-            place-items: center;
-            cursor: pointer;
-            flex-shrink: 0;
-        }
-
-        .cat-label {
-            font-size: 10px;
-            font-weight: 700;
-            color: var(--text-muted);
-            letter-spacing: .07em;
-            text-transform: uppercase;
-            padding: 8px 10px 4px;
-        }
-
+        /* ── MODALS ── */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -503,6 +567,7 @@
             outline: none;
             width: 100%;
             transition: border-color .15s;
+            box-sizing: border-box;
         }
 
             .form-control:focus {
@@ -601,8 +666,7 @@
             font-family: 'DM Sans',sans-serif;
         }
 
-
-        /* ✅ #3: Kalem bazlı ödeme seçim paneli */
+        /* Kalem bazlı ödeme */
         .item-sel-panel {
             border: 1px solid var(--border);
             border-radius: 10px;
@@ -841,11 +905,14 @@
             .info-card {
                 grid-template-columns: 1fr 1fr
             }
+
+            .status-flow {
+                flex-wrap: wrap;
+            }
         }
     </style>
 }
 
-@* Alerts *@
 @if (TempData["Success"] != null)
 {
     <div class="alert alert-success">✅ @TempData["Success"]</div>
@@ -855,7 +922,6 @@
     <div class="alert alert-error">❌ @TempData["Error"]</div>
 }
 
-@* Page Header *@
 <div class="page-header">
     <div>
         <h1 class="page-title">@Model.Table?.TableName — Adisyon #@Model.OrderId</h1>
@@ -874,8 +940,7 @@
         <a asp-controller="Orders" asp-action="Index" class="back-btn">← Siparişler</a>
         @if (isOpen)
         {
-            <button class="btn-pay" style="width:auto;padding:8px 18px"
-                    onclick="openModal('payModal')">
+            <button class="btn-pay" style="width:auto;padding:8px 18px" onclick="openModal('payModal')">
                 💳 Ödeme Al
             </button>
         }
@@ -903,9 +968,7 @@
             </div>
             <div>
                 <div class="info-item-label">Süre</div>
-                <div class="info-item-value @(minutesOpen > 30 ? "text-danger" : "")">
-                    ⏱ @minutesOpen dk
-                </div>
+                <div class="info-item-value @(minutesOpen > 30 ? "text-danger" : "")">⏱ @minutesOpen dk</div>
             </div>
             <div>
                 <div class="info-item-label">Durum</div>
@@ -924,7 +987,7 @@
         @* Not *@
         @if (!string.IsNullOrWhiteSpace(Model.OrderNote))
         {
-            <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;font-size:13px;color:var(--text-muted);">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 18px;font-size:13px;color:var(--text-muted);">
                 📝 <strong style="color:var(--text)">Not:</strong> @Model.OrderNote
             </div>
         }
@@ -940,8 +1003,10 @@
 
             @foreach (var item in Model.OrderItems)
             {
+                var currentOrder = StatusOrder(item.OrderItemStatus);
+
                 <div class="item-row">
-                    <div style="flex:1">
+                    <div style="flex:1;min-width:0;">
                         <div class="item-name">@item.MenuItem?.MenuItemName</div>
                         @if (!string.IsNullOrWhiteSpace(item.OrderItemNote))
                         {
@@ -949,29 +1014,41 @@
                         }
                     </div>
                     <div class="item-qty">×@item.OrderItemQuantity</div>
-                    <div class="item-price">₺@item.OrderItemLineTotal.ToString("N0")</div>
+                    <div class="item-price">₺@item.OrderItemLineTotal.ToString("N2")</div>
 
                     @if (isOpen && item.OrderItemStatus != "cancelled")
                     {
-                        <div class="status-btns">
-                            @foreach (var (status, label, cls) in new[]
-                                                {
-                                        ("pending",   "Bekliyor",   "sbtn-pending"),
-                                        ("preparing", "Hazırlıyor", "sbtn-preparing"),
-                                        ("served",    "Servis",     "sbtn-served"),
-                                        })
+                        @* Tek yönlü ilerleme akışı — mevcut durum badge + sadece sonraki adım butonu *@
+                        <div class="status-flow">
+                            @* Mevcut durum göstergesi *@
+                            <span class="sflow-current @StatusClass(item.OrderItemStatus)">
+                                @StatusLabel(item.OrderItemStatus)
+                            </span>
+
+                            @* Sonraki adım butonu — sadece ileri gidilebilir *@
+                            @if (item.OrderItemStatus == "pending")
                             {
+                                <span class="sflow-arrow">→</span>
                                 <form asp-controller="Orders" asp-action="UpdateItemStatus" method="post" style="display:inline">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="orderItemId" value="@item.OrderItemId" />
-                                    <input type="hidden" name="newStatus" value="@status" />
+                                    <input type="hidden" name="newStatus" value="preparing" />
                                     <input type="hidden" name="orderId" value="@Model.OrderId" />
-                                    <button type="submit"
-                                            class="sbtn @cls @(item.OrderItemStatus == status ? "current" : "")">
-                                        @label
-                                    </button>
+                                    <button type="submit" class="sflow-btn sflow-btn-prepare">Hazırlıyor</button>
                                 </form>
                             }
+                            else if (item.OrderItemStatus == "preparing")
+                            {
+                                <span class="sflow-arrow">→</span>
+                                <form asp-controller="Orders" asp-action="UpdateItemStatus" method="post" style="display:inline">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="orderItemId" value="@item.OrderItemId" />
+                                    <input type="hidden" name="newStatus" value="served" />
+                                    <input type="hidden" name="orderId" value="@Model.OrderId" />
+                                    <button type="submit" class="sflow-btn sflow-btn-serve">Servis Et ✓</button>
+                                </form>
+                            }
+                            @* served → artık buton yok, sadece badge görünür *@
                         </div>
                     }
                     else
@@ -989,21 +1066,27 @@
         {
             <div class="panel">
                 <div class="panel-head">
-                    <span class="panel-title">Ürün Ekle</span>
+                    <span class="panel-title">➕ Ürün Ekle</span>
+                    <span style="font-size:11px;color:var(--text-muted)">Ürüne tıklayın</span>
                 </div>
-                <div class="add-item-list">
+                <div class="add-panel-body">
                     @foreach (var cat in categories)
                     {
-                        <div class="cat-label">@cat.CategoryName</div>
-                        @foreach (var mi in cat.MenuItems)
-                        {
-                            <div class="add-item-row"
-                                 onclick="openAddItemModal(@mi.MenuItemId, '@Html.Raw(mi.MenuItemName.Replace("'", "\\'"))', @mi.MenuItemPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture))">
-                                <span class="ai-name">@mi.MenuItemName</span>
-                                <span class="ai-price">₺@mi.MenuItemPrice.ToString("N0")</span>
-                                <button type="button" class="ai-btn">＋</button>
-                            </div>
-                        }
+                        <div class="add-cat-header">
+                            <div class="add-cat-stripe"></div>
+                            <span class="add-cat-name">@cat.CategoryName</span>
+                        </div>
+                        <div class="add-items-wrap">
+                            @foreach (var mi in cat.MenuItems)
+                            {
+                                <div class="add-item-row"
+                                     onclick="openAddItemModal(@mi.MenuItemId, '@Html.Raw(mi.MenuItemName.Replace("'", "\\'"))', @mi.MenuItemPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture))">
+                                    <span class="ai-name">@mi.MenuItemName</span>
+                                    <span class="ai-price">₺@mi.MenuItemPrice.ToString("N2")</span>
+                                    <button type="button" class="ai-btn">＋</button>
+                                </div>
+                            }
+                        </div>
                     }
                 </div>
             </div>
@@ -1011,7 +1094,7 @@
 
     </div>
 
-    @* ── SAĞ PANEL — ÖDEME DURUMU ── *@
+    @* ── SAĞ PANEL — ÖDEME ── *@
     <div class="pay-panel">
         <div class="pay-head">
             <div class="pay-title">Ödeme Durumu</div>
@@ -1044,15 +1127,12 @@
             }
         </div>
 
-        @* Mevcut ödemeler *@
         @if (Model.Payments?.Any() == true)
         {
             @foreach (var p in Model.Payments.OrderBy(p => p.PaymentsPaidAt))
             {
                 <div class="payment-record">
-                    <div class="pr-name">
-                        @(string.IsNullOrWhiteSpace(p.PaymentsNote) ? "Ödeme" : p.PaymentsNote)
-                    </div>
+                    <div class="pr-name">@(string.IsNullOrWhiteSpace(p.PaymentsNote) ? "Ödeme" : p.PaymentsNote)</div>
                     <span class="pr-method">@PayMethodLabel(p.PaymentsMethod)</span>
                     <span class="pr-amount">₺@p.PaymentsAmount.ToString("N2")</span>
                 </div>
@@ -1062,9 +1142,7 @@
         <div class="pay-actions">
             @if (isOpen)
             {
-                <button class="btn-pay" onclick="openModal('payModal')">
-                    💳 Ödeme Al
-                </button>
+                <button class="btn-pay" onclick="openModal('payModal')">💳 Ödeme Al</button>
             }
             else
             {
@@ -1083,22 +1161,19 @@
         <div class="modal-title" id="addItemTitle">Ürün Ekle</div>
         <div class="modal-sub" id="addItemSub">Adet ve not bilgisini girin</div>
 
-        <form asp-controller="Orders" asp-action="AddItem" method="post"
-              onsubmit="return validateAddItem()">
+        <form asp-controller="Orders" asp-action="AddItem" method="post" onsubmit="return validateAddItem()">
             @Html.AntiForgeryToken()
             <input type="hidden" name="orderId" value="@Model.OrderId" />
             <input type="hidden" name="menuItemId" id="addItemId" />
 
             <div class="form-group">
                 <label class="form-label">Adet *</label>
-                <input class="form-control" id="addItemQty" name="quantity"
-                       type="number" min="1" max="99" value="1" />
+                <input class="form-control" id="addItemQty" name="quantity" type="number" min="1" max="99" value="1" />
                 <span class="form-error" id="err-qty">Adet 1 veya daha fazla olmalı.</span>
             </div>
             <div class="form-group">
                 <label class="form-label">Not (opsiyonel)</label>
-                <input class="form-control" name="note"
-                       placeholder="Az pişmiş, acısız..." maxlength="200" />
+                <input class="form-control" name="note" placeholder="Az pişmiş, acısız..." maxlength="200" />
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-ghost" onclick="closeModal('addItemModal')">İptal</button>
@@ -1114,7 +1189,6 @@
         <div class="modal-title">Ödeme Al</div>
         <div class="modal-sub">Ürün seçerek veya tutarı girerek ödeme alın</div>
 
-        @* ✅ #3: Kalem bazlı ödeme — Sipariş ürünlerini listele *@
         <div class="item-sel-panel" id="itemSelPanel">
             <div class="item-sel-head" onclick="toggleItemSelPanel()">
                 <span>🧾 Ürün Seçerek Hesapla</span>
@@ -1123,9 +1197,6 @@
             <div class="item-sel-body" id="itemSelBody">
                 @foreach (var item in Model.OrderItems.Where(i => i.OrderItemStatus != "cancelled"))
                 {
-                    var unitPrice = item.OrderItemQuantity > 0
-                    ? item.OrderItemUnitPrice
-                    : 0;
                     <div class="isel-row"
                          data-item-id="@item.OrderItemId"
                          data-max-qty="@item.OrderItemQuantity"
@@ -1133,17 +1204,9 @@
                         <div class="isel-name">@item.MenuItem?.MenuItemName</div>
                         <div class="isel-price">₺@item.OrderItemUnitPrice.ToString("N2")/ad</div>
                         <div class="isel-ctrl">
-                            <button type="button" class="isel-minus"
-                                    onclick="iselChange(@item.OrderItemId, -1)"
-                                    id="isel-minus-@item.OrderItemId">
-                                −
-                            </button>
+                            <button type="button" class="isel-minus" onclick="iselChange(@item.OrderItemId, -1)" id="isel-minus-@item.OrderItemId">−</button>
                             <span class="isel-qty" id="isel-qty-@item.OrderItemId">0</span>/<span style="font-size:11px;color:var(--text-muted)">@item.OrderItemQuantity</span>
-                            <button type="button" class="isel-plus"
-                                    onclick="iselChange(@item.OrderItemId, 1)"
-                                    id="isel-plus-@item.OrderItemId">
-                                +
-                            </button>
+                            <button type="button" class="isel-plus" onclick="iselChange(@item.OrderItemId,  1)" id="isel-plus-@item.OrderItemId">+</button>
                         </div>
                         <div class="isel-subtotal" id="isel-sub-@item.OrderItemId">₺0</div>
                     </div>
@@ -1153,15 +1216,13 @@
                         <span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;">Seçilen Toplam</span><br>
                         <span class="isel-total-val" id="iselTotalVal">₺0,00</span>
                     </div>
-                    <button type="button" class="isel-apply-btn" id="iselApplyBtn"
-                            onclick="applyItemSelection()" disabled>
+                    <button type="button" class="isel-apply-btn" id="iselApplyBtn" onclick="applyItemSelection()" disabled>
                         Ödeme Tutarına Aktar →
                     </button>
                 </div>
             </div>
         </div>
 
-        @* Özet *@
         <div class="pay-modal-summary">
             <div class="pms-row">
                 <span style="color:var(--text-muted)">Adisyon Toplamı</span>
@@ -1182,65 +1243,40 @@
             </div>
         </div>
 
-        <form asp-controller="Orders" asp-action="AddPayment" method="post"
-              onsubmit="return syncAndValidatePayment()">
+        <form asp-controller="Orders" asp-action="AddPayment" method="post" onsubmit="return syncAndValidatePayment()">
             @Html.AntiForgeryToken()
             <input type="hidden" name="orderId" value="@Model.OrderId" />
             <input type="hidden" name="paymentMethod" id="selectedMethod" value="cash" />
-
-            @* ✅ FIX #1 & #2: Controller string olarak alacak — virgül/nokta sorunu yok *@
             <input type="hidden" name="paymentAmountStr" id="paymentAmountStr" />
             <input type="hidden" name="discountAmountStr" id="discountAmountStr" />
 
             <div class="form-group">
                 <label class="form-label">Ödeyen Kişi (opsiyonel)</label>
-                <input class="form-control" name="payerName"
-                       placeholder="Ali Yılmaz veya boş bırakın" maxlength="100" />
+                <input class="form-control" name="payerName" placeholder="Ali Yılmaz veya boş bırakın" maxlength="100" />
             </div>
 
             <div class="form-group">
                 <label class="form-label">Ödeme Yöntemi *</label>
                 <div class="method-grid">
-                    <button type="button" class="method-btn active" data-method="cash"
-                            onclick="selectMethod(this,'cash')">
-                        💵 Nakit
-                    </button>
-                    <button type="button" class="method-btn" data-method="credit_card"
-                            onclick="selectMethod(this,'credit_card')">
-                        💳 Kredi Kartı
-                    </button>
-                    <button type="button" class="method-btn" data-method="debit_card"
-                            onclick="selectMethod(this,'debit_card')">
-                        🏦 Banka Kartı
-                    </button>
-                    <button type="button" class="method-btn" data-method="other"
-                            onclick="selectMethod(this,'other')">
-                        🔄 Diğer
-                    </button>
+                    <button type="button" class="method-btn active" onclick="selectMethod(this,'cash')">💵 Nakit</button>
+                    <button type="button" class="method-btn" onclick="selectMethod(this,'credit_card')">💳 Kredi Kartı</button>
+                    <button type="button" class="method-btn" onclick="selectMethod(this,'debit_card')">🏦 Banka Kartı</button>
+                    <button type="button" class="method-btn" onclick="selectMethod(this,'other')">🔄 Diğer</button>
                 </div>
             </div>
 
             <div class="form-group">
                 <label class="form-label">İndirim Tutarı</label>
                 <div class="discount-row">
-                    @* ✅ Kullanıcıya gösterilen input — text, virgül de yazılabilir *@
-                    <input class="form-control" id="discountAmountDisplay"
-                           type="text" inputmode="decimal" placeholder="0"
-                           oninput="updateRemaining()" />
-                    <span class="discount-label" id="discount-label" style="display:none">
-                        Net: ₺<span id="net-amount">0</span>
-                    </span>
+                    <input class="form-control" id="discountAmountDisplay" type="text" inputmode="decimal" placeholder="0" oninput="updateRemaining()" />
+                    <span class="discount-label" id="discount-label" style="display:none">Net: ₺<span id="net-amount">0</span></span>
                 </div>
             </div>
 
             <div class="form-group">
                 <label class="form-label">Ödeme Tutarı *</label>
-                @* ✅ Kullanıcıya gösterilen input — text, virgül de yazılabilir *@
-                <input class="form-control" id="paymentAmountDisplay"
-                       type="text" inputmode="decimal"
-                       placeholder="0,00" oninput="updateChange()" />
+                <input class="form-control" id="paymentAmountDisplay" type="text" inputmode="decimal" placeholder="0,00" oninput="updateChange()" />
                 <span class="form-error" id="err-amount">Geçerli bir tutar giriniz.</span>
-
                 <button type="button"
                         style="margin-top:6px;font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;"
                         onclick="fillRemaining()">
@@ -1248,13 +1284,9 @@
                 </button>
             </div>
 
-            @* Para üstü — nakit seçiliyse *@
             <div id="changeRow" class="form-group" style="display:none">
                 <label class="form-label">Para Üstü</label>
-                <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#22c55e;padding:4px 0"
-                     id="changeDisplay">
-                    ₺0,00
-                </div>
+                <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#22c55e;padding:4px 0" id="changeDisplay">₺0,00</div>
             </div>
 
             <div class="modal-footer">
@@ -1267,28 +1299,19 @@
 
 @section Scripts {
     <script>
-        // Razor'dan gelen değerler — InvariantCulture ile noktalı format
         const orderTotal  = @Model.OrderTotalAmount.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
         const alreadyPaid = @totalPaid.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
         let currentMethod = 'cash';
 
-        // ✅ Kullanıcının girdiği virgüllü/noktalı değeri JS float'a çevir
         function parseLocalDecimal(str) {
             if (!str) return 0;
-            // "1.250,04" → "1250.04" | "250,04" → "250.04" | "250.04" → "250.04"
-            const cleaned = str.trim()
-                .replace(/\./g, '')   // binlik ayraç noktaları sil
-                .replace(',', '.');   // ondalık virgülü noktaya çevir
+            const cleaned = str.trim().replace(/\./g, '').replace(',', '.');
             const val = parseFloat(cleaned);
             return isNaN(val) ? 0 : val;
         }
 
-        // ✅ Form submit öncesi hidden input'lara noktalı değer yaz
-        // ── ✅ #3: Kalem bazlı ödeme seçim sistemi ─────────────────
-        // Her ürün için seçilen adet
-        const iselState = {}; // { itemId: { selected, max, unitPrice } }
-
-        // Sayfa yüklenince state'i doldur
+        // ── Kalem seçim ──
+        const iselState = {};
         document.querySelectorAll('.isel-row').forEach(row => {
             const id        = parseInt(row.dataset.itemId);
             const max       = parseInt(row.dataset.maxQty);
@@ -1307,85 +1330,58 @@
             const s = iselState[itemId];
             if (!s) return;
             s.selected = Math.max(0, Math.min(s.max, s.selected + delta));
-
-            // Qty göster
             const qtyEl = document.getElementById('isel-qty-' + itemId);
             qtyEl.textContent = s.selected;
             qtyEl.classList.toggle('has-sel', s.selected > 0);
-
-            // Subtotal göster
             const sub = s.selected * s.unitPrice;
             document.getElementById('isel-sub-' + itemId).textContent =
                 s.selected > 0 ? '₺' + sub.toFixed(2).replace('.', ',') : '₺0';
-
-            // Eksi butonu: seçilen 0 ise disabled görünümü
-            const minusBtn = document.getElementById('isel-minus-' + itemId);
-            const plusBtn  = document.getElementById('isel-plus-'  + itemId);
-            minusBtn.style.opacity = s.selected === 0   ? '0.3' : '1';
-            plusBtn.style.opacity  = s.selected === s.max ? '0.3' : '1';
-
-            // Genel toplam güncelle
+            document.getElementById('isel-minus-' + itemId).style.opacity = s.selected === 0     ? '0.3' : '1';
+            document.getElementById('isel-plus-'  + itemId).style.opacity = s.selected === s.max ? '0.3' : '1';
             updateIselTotal();
         }
 
         function updateIselTotal() {
             let total = 0;
             Object.values(iselState).forEach(s => { total += s.selected * s.unitPrice; });
-            document.getElementById('iselTotalVal').textContent =
-                '₺' + total.toFixed(2).replace('.', ',');
-            const btn = document.getElementById('iselApplyBtn');
-            btn.disabled = total <= 0;
+            document.getElementById('iselTotalVal').textContent = '₺' + total.toFixed(2).replace('.', ',');
+            document.getElementById('iselApplyBtn').disabled = total <= 0;
         }
 
         function applyItemSelection() {
             let total = 0;
             Object.values(iselState).forEach(s => { total += s.selected * s.unitPrice; });
             if (total <= 0) return;
-            // Tutarı ödeme alanına yaz
-            document.getElementById('paymentAmountDisplay').value =
-                total.toFixed(2).replace('.', ',');
+            document.getElementById('paymentAmountDisplay').value = total.toFixed(2).replace('.', ',');
             updateChange();
-            // Paneli kapat
-            const body  = document.getElementById('itemSelBody');
-            const arrow = document.getElementById('itemSelPanelArrow');
-            body.classList.remove('open');
-            arrow.textContent = '▸';
+            document.getElementById('itemSelBody').classList.remove('open');
+            document.getElementById('itemSelPanelArrow').textContent = '▸';
         }
-        // ── kalem seçim sonu ─────────────────────────────────────────
 
         function syncAndValidatePayment() {
             const payDisplay  = document.getElementById('paymentAmountDisplay').value;
             const discDisplay = document.getElementById('discountAmountDisplay').value;
-
             const payVal  = parseLocalDecimal(payDisplay);
             const discVal = parseLocalDecimal(discDisplay);
-
             const err = document.getElementById('err-amount');
-            if (payVal <= 0) {
-                err.style.display = 'block'; return false;
-            }
+            if (payVal <= 0) { err.style.display = 'block'; return false; }
             err.style.display = 'none';
-
-            // ✅ Controller'a noktalı (InvariantCulture) string gönder
             document.getElementById('paymentAmountStr').value  = payVal.toFixed(2);
             document.getElementById('discountAmountStr').value = discVal.toFixed(2);
-
             return true;
         }
 
-        // Modal
         function openModal(id)  { document.getElementById(id).classList.add('open'); }
         function closeModal(id) { document.getElementById(id).classList.remove('open'); }
         document.querySelectorAll('.modal-overlay').forEach(o => {
             o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
         });
 
-        // Ürün ekleme modalı
         function openAddItemModal(id, name, price) {
-            document.getElementById('addItemId').value              = id;
-            document.getElementById('addItemTitle').textContent     = name + ' Ekle';
-            document.getElementById('addItemSub').textContent       = '₺' + price.toFixed(2).replace('.', ',') + ' / adet';
-            document.getElementById('addItemQty').value             = 1;
+            document.getElementById('addItemId').value          = id;
+            document.getElementById('addItemTitle').textContent = name + ' Ekle';
+            document.getElementById('addItemSub').textContent   = '₺' + price.toFixed(2).replace('.', ',') + ' / adet';
+            document.getElementById('addItemQty').value         = 1;
             openModal('addItemModal');
         }
 
@@ -1396,7 +1392,6 @@
             err.style.display = 'none'; return true;
         }
 
-        // Ödeme yöntemi seçimi
         function selectMethod(btn, method) {
             document.querySelectorAll('.method-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
@@ -1406,17 +1401,13 @@
             updateChange();
         }
 
-        // İndirim → kalan güncelle
         function updateRemaining() {
             const disc    = parseLocalDecimal(document.getElementById('discountAmountDisplay').value);
             const net     = Math.max(0, orderTotal - disc - alreadyPaid);
             const netFull = Math.max(0, orderTotal - disc);
-
             document.getElementById('pms-remaining').textContent = '₺' + net.toFixed(2).replace('.', ',');
-
             const discRow   = document.getElementById('pms-discount-row');
             const discLabel = document.getElementById('discount-label');
-
             if (disc > 0) {
                 discRow.style.display   = 'flex';
                 discLabel.style.display = 'inline';
@@ -1429,7 +1420,6 @@
             updateChange();
         }
 
-        // Kalan tutarı doldur
         function fillRemaining() {
             const disc = parseLocalDecimal(document.getElementById('discountAmountDisplay').value);
             const rem  = Math.max(0, orderTotal - disc - alreadyPaid);
@@ -1437,7 +1427,6 @@
             updateChange();
         }
 
-        // Para üstü hesapla
         function updateChange() {
             if (currentMethod !== 'cash') return;
             const disc    = parseLocalDecimal(document.getElementById('discountAmountDisplay').value);
@@ -1447,7 +1436,6 @@
             document.getElementById('changeDisplay').textContent = '₺' + change.toFixed(2).replace('.', ',');
         }
 
-        // Alert otomatik kaybol
         setTimeout(() => {
             document.querySelectorAll('.alert').forEach(a => {
                 a.style.transition = 'opacity .5s';

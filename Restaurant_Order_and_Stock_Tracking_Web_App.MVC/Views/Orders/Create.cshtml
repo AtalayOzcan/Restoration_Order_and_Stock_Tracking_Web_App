@@ -2,22 +2,22 @@
     ViewData["Title"] = ViewData["Title"]?.ToString() ?? "Adisyon Aç";
     var table = (Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models.Table)ViewBag.Table;
     var categories = (List<Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models.Category>)ViewBag.Categories;
+    int catIndex = 0;
 }
 
 @section Styles {
     <style>
         .order-layout {
             display: grid;
-            grid-template-columns: 1fr 340px;
+            grid-template-columns: 1fr 360px;
             gap: 20px;
             align-items: start;
         }
 
-        /* Menü tarafı */
         .menu-panel {
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 10px;
         }
 
         .category-block {
@@ -25,21 +25,110 @@
             border: 1px solid var(--border);
             border-radius: 14px;
             overflow: hidden;
+            transition: border-color .2s;
         }
 
+            .category-block:has(.category-head.open) {
+                border-color: rgba(249,115,22,.3);
+            }
+
+        /* ── Tıklanabilir Kategori Bar ── */
         .category-head {
             padding: 13px 18px;
-            border-bottom: 1px solid var(--border);
-            font-family: 'Syne',sans-serif;
-            font-size: 14px;
-            font-weight: 700;
+            background: rgba(255,255,255,0.04);
+            font-family: 'Syne', sans-serif;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            user-select: none;
+            transition: background .15s;
+            /* Açıkken alt border gelir */
+            border-bottom: 1px solid transparent;
+        }
+
+            .category-head:hover {
+                background: rgba(249,115,22,.06);
+            }
+
+            .category-head.open {
+                background: rgba(249,115,22,.08);
+                border-bottom-color: var(--border);
+            }
+
+        .cat-stripe {
+            width: 3px;
+            height: 15px;
+            background: var(--accent);
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .cat-title {
+            flex: 1;
+        }
+
+        .cat-item-count {
+            font-size: 10px;
+            font-weight: 600;
+            opacity: .5;
+            font-family: 'DM Sans', sans-serif;
+            letter-spacing: 0;
+            text-transform: none;
+        }
+
+        /* Chevron ok */
+        .cat-chevron {
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            opacity: .65;
+            transition: transform .3s cubic-bezier(.4,0,.2,1), opacity .15s;
+        }
+
+            .cat-chevron svg {
+                width: 13px;
+                height: 13px;
+                stroke: currentColor;
+                fill: none;
+                stroke-width: 2.5;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+            }
+
+        .category-head.open .cat-chevron {
+            transform: rotate(180deg);
+            opacity: 1;
+        }
+
+        /* ── Animasyonlu İçerik (grid-template-rows tekniği) ── */
+        .cat-body {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows .3s cubic-bezier(.4,0,.2,1);
+        }
+
+            .cat-body.open {
+                grid-template-rows: 1fr;
+            }
+
+        .cat-body-inner {
+            overflow: hidden;
         }
 
         .menu-items-list {
-            padding: 10px;
+            padding: 8px;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 4px;
         }
 
         .menu-item-row {
@@ -47,11 +136,11 @@
             align-items: center;
             gap: 10px;
             padding: 10px 12px;
-            border-radius: 10px;
+            border-radius: 9px;
             border: 1px solid var(--border);
             background: var(--surface2);
             cursor: pointer;
-            transition: border-color .15s,background .15s;
+            transition: border-color .15s, background .15s;
         }
 
             .menu-item-row:hover {
@@ -61,38 +150,44 @@
 
         .mi-name {
             flex: 1;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
         }
 
         .mi-price {
-            font-family: 'Syne',sans-serif;
-            font-size: 14px;
+            font-family: 'Syne', sans-serif;
+            font-size: 13px;
             font-weight: 700;
             color: var(--accent);
             flex-shrink: 0;
+            white-space: nowrap;
         }
 
         .mi-add {
-            width: 28px;
-            height: 28px;
+            width: 26px;
+            height: 26px;
             border-radius: 7px;
             background: var(--accent);
             color: #fff;
             border: none;
-            font-size: 18px;
+            font-size: 17px;
             display: grid;
             place-items: center;
             cursor: pointer;
             flex-shrink: 0;
             transition: background .15s;
+            line-height: 1;
         }
 
             .mi-add:hover {
                 background: #ea6c0a;
             }
 
-        /* Adisyon (sağ panel) */
+        /* ── Sağ Panel ── */
         .order-panel {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -100,15 +195,19 @@
             overflow: hidden;
             position: sticky;
             top: 76px;
+            max-height: calc(100vh - 100px);
+            display: flex;
+            flex-direction: column;
         }
 
         .order-head {
             padding: 15px 18px;
             border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
         }
 
         .order-head-title {
-            font-family: 'Syne',sans-serif;
+            font-family: 'Syne', sans-serif;
             font-size: 15px;
             font-weight: 700;
         }
@@ -120,11 +219,12 @@
         }
 
         .order-form-fields {
-            padding: 14px 18px;
+            padding: 12px 16px;
             border-bottom: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 9px;
+            flex-shrink: 0;
         }
 
         .form-group {
@@ -134,11 +234,11 @@
         }
 
         .form-label {
-            font-size: 11px;
-            font-weight: 600;
+            font-size: 10px;
+            font-weight: 700;
             color: var(--text-muted);
             text-transform: uppercase;
-            letter-spacing: .05em;
+            letter-spacing: .06em;
         }
 
         .form-control {
@@ -147,11 +247,12 @@
             border-radius: 8px;
             padding: 9px 12px;
             color: var(--text);
-            font-family: 'DM Sans',sans-serif;
+            font-family: 'DM Sans', sans-serif;
             font-size: 13px;
             outline: none;
             width: 100%;
             transition: border-color .15s;
+            box-sizing: border-box;
         }
 
             .form-control:focus {
@@ -165,29 +266,28 @@
             margin-top: 2px;
         }
 
-        /* Sepet */
         .basket {
-            padding: 10px;
+            padding: 8px;
+            flex: 1;
+            overflow-y: auto;
             min-height: 80px;
         }
 
         .basket-empty {
             text-align: center;
-            padding: 24px;
+            padding: 28px 16px;
             color: var(--text-muted);
             font-size: 13px;
+            line-height: 1.6;
         }
 
         .basket-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 10px;
+            padding: 9px 10px;
             border-radius: 9px;
             background: var(--surface2);
             border: 1px solid var(--border);
             margin-bottom: 6px;
-            animation: fadeIn .2s ease;
+            animation: fadeIn .18s ease;
         }
 
         @@keyframes fadeIn {
@@ -202,47 +302,42 @@
             }
         }
 
+        .bi-top {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
         .bi-name {
             flex: 1;
             font-size: 13px;
             font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
         }
-
-        .bi-note {
-            width: 100%;
-            margin-top: 4px;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 5px 8px;
-            font-size: 12px;
-            color: var(--text);
-            outline: none;
-            font-family: 'DM Sans',sans-serif;
-        }
-
-            .bi-note:focus {
-                border-color: var(--accent);
-            }
 
         .bi-qty-wrap {
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 4px;
+            flex-shrink: 0;
         }
 
         .bi-qty-btn {
-            width: 24px;
-            height: 24px;
-            border-radius: 6px;
+            width: 22px;
+            height: 22px;
+            border-radius: 5px;
             border: 1px solid var(--border);
             background: var(--surface);
             color: var(--text);
-            font-size: 14px;
+            font-size: 13px;
             display: grid;
             place-items: center;
             cursor: pointer;
-            transition: background .15s;
+            transition: background .12s;
+            flex-shrink: 0;
         }
 
             .bi-qty-btn:hover {
@@ -252,48 +347,68 @@
             }
 
         .bi-qty {
-            width: 28px;
+            width: 22px;
             text-align: center;
-            font-family: 'Syne',sans-serif;
+            font-family: 'Syne', sans-serif;
             font-weight: 700;
-            font-size: 14px;
+            font-size: 13px;
         }
 
         .bi-total {
-            font-family: 'Syne',sans-serif;
-            font-size: 13px;
+            font-family: 'Syne', sans-serif;
+            font-size: 12px;
             font-weight: 700;
             color: var(--accent);
-            min-width: 55px;
+            min-width: 52px;
             text-align: right;
             flex-shrink: 0;
+            white-space: nowrap;
         }
 
         .bi-remove {
-            width: 22px;
-            height: 22px;
-            border-radius: 5px;
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
             border: none;
             background: none;
             color: var(--text-muted);
-            font-size: 16px;
+            font-size: 15px;
             cursor: pointer;
             display: grid;
             place-items: center;
             flex-shrink: 0;
+            transition: color .12s;
         }
 
             .bi-remove:hover {
                 color: #ef4444;
             }
 
-        /* Toplam + submit */
+        .bi-note {
+            width: 100%;
+            margin-top: 5px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 5px 8px;
+            font-size: 11px;
+            color: var(--text);
+            outline: none;
+            font-family: 'DM Sans', sans-serif;
+            box-sizing: border-box;
+        }
+
+            .bi-note:focus {
+                border-color: var(--accent);
+            }
+
         .order-footer {
-            padding: 14px 18px;
+            padding: 12px 16px;
             border-top: 1px solid var(--border);
             display: flex;
             flex-direction: column;
             gap: 10px;
+            flex-shrink: 0;
         }
 
         .total-row {
@@ -309,7 +424,7 @@
         }
 
         .total-amount {
-            font-family: 'Syne',sans-serif;
+            font-family: 'Syne', sans-serif;
             font-size: 22px;
             font-weight: 800;
             color: var(--accent);
@@ -322,7 +437,7 @@
             color: #fff;
             border: none;
             border-radius: 10px;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 700;
             cursor: pointer;
             transition: background .15s;
@@ -358,7 +473,8 @@
             }
 
             .order-panel {
-                position: static
+                position: static;
+                max-height: none;
             }
         }
     </style>
@@ -375,7 +491,7 @@
         <p class="page-sub">Menüden ürün seçin, ardından adisyonu açın</p>
     </div>
     <a asp-controller="Tables" asp-action="Index"
-       style="padding:8px 16px;border:1px solid var(--border);border-radius:9px;font-size:13px;color:var(--text-muted);">
+       style="padding:8px 16px;border:1px solid var(--border);border-radius:9px;font-size:13px;color:var(--text-muted);white-space:nowrap;">
         ← Masalara Dön
     </a>
 </div>
@@ -384,28 +500,43 @@
       onsubmit="return validateOrder()">
     @Html.AntiForgeryToken()
     <input type="hidden" name="tableId" value="@table.TableId" />
-
-    @* Sepet verileri buraya JS ile doldurulacak *@
     <div id="hiddenInputs"></div>
 
     <div class="order-layout">
 
-        @* ── SOL: Menü ── *@
+        @* ── SOL: Menü — Kategoriler varsayılan KAPALI ── *@
         <div class="menu-panel">
             @foreach (var cat in categories)
             {
+                var cid = catIndex++;
                 <div class="category-block">
-                    <div class="category-head">@cat.CategoryName</div>
-                    <div class="menu-items-list">
-                        @foreach (var item in cat.MenuItems)
-                        {
-                            <div class="menu-item-row"
-                                 onclick="addToBasket(@item.MenuItemId, '@Html.Raw(item.MenuItemName.Replace("'", "\\'"))', @item.MenuItemPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture))">
-                                <span class="mi-name">@item.MenuItemName</span>
-                                <span class="mi-price">₺@item.MenuItemPrice.ToString("N2")</span>
-                                <button type="button" class="mi-add">＋</button>
+                    @* Başlık bar — varsayılan closed (open class yok) *@
+                    <div class="category-head" id="cat-head-@cid" onclick="toggleCategory(@cid)">
+                        <div class="cat-stripe"></div>
+                        <span class="cat-title">@cat.CategoryName</span>
+                        <span class="cat-item-count">@cat.MenuItems.Count ürün</span>
+                        <span class="cat-chevron">
+                            <svg viewBox="0 0 24 24">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </span>
+                    </div>
+
+                    @* İçerik — varsayılan collapsed *@
+                    <div class="cat-body" id="cat-body-@cid">
+                        <div class="cat-body-inner">
+                            <div class="menu-items-list">
+                                @foreach (var item in cat.MenuItems)
+                                {
+                                    <div class="menu-item-row"
+                                         onclick="addToBasket(@item.MenuItemId, '@Html.Raw(item.MenuItemName.Replace("'", "\\'"))', @item.MenuItemPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture))">
+                                        <span class="mi-name">@item.MenuItemName</span>
+                                        <span class="mi-price">₺@item.MenuItemPrice.ToString("N2")</span>
+                                        <button type="button" class="mi-add">＋</button>
+                                    </div>
+                                }
                             </div>
-                        }
+                        </div>
                     </div>
                 </div>
             }
@@ -461,16 +592,22 @@
 
 @section Scripts {
     <script>
-        // Sepet state
-        const basket = [];   // [{id, name, price, qty, note}]
+        /* ── Kategori Aç/Kapat ── */
+        function toggleCategory(id) {
+            const head = document.getElementById('cat-head-' + id);
+            const body = document.getElementById('cat-body-' + id);
+            const opening = !head.classList.contains('open');
+            head.classList.toggle('open');
+            body.classList.toggle('open');
+        }
+
+        /* ── Sepet ── */
+        const basket = [];
 
         function addToBasket(id, name, price) {
             const existing = basket.find(b => b.id === id);
-            if (existing) {
-                existing.qty++;
-            } else {
-                basket.push({ id, name, price, qty: 1, note: '' });
-            }
+            if (existing) { existing.qty++; }
+            else { basket.push({ id, name, price, qty: 1, note: '' }); }
             renderBasket();
         }
 
@@ -491,15 +628,12 @@
         function updateNote(id, note) {
             const item = basket.find(b => b.id === id);
             if (item) item.note = note;
-            // hidden input'ları güncelle
             syncHiddenInputs();
         }
 
         function renderBasket() {
             const container = document.getElementById('basket');
             const empty     = document.getElementById('basketEmpty');
-
-            // Eski satırları temizle (empty div hariç)
             container.querySelectorAll('.basket-item').forEach(el => el.remove());
 
             if (basket.length === 0) {
@@ -513,22 +647,20 @@
                     const div = document.createElement('div');
                     div.className = 'basket-item';
                     div.innerHTML = `
-                        <div style="flex:1">
-                            <div style="display:flex;align-items:center;gap:8px">
-                                <span class="bi-name">${escHtml(item.name)}</span>
-                                <div class="bi-qty-wrap">
-                                    <button type="button" class="bi-qty-btn" onclick="changeQty(${item.id},-1)">−</button>
-                                    <span class="bi-qty">${item.qty}</span>
-                                    <button type="button" class="bi-qty-btn" onclick="changeQty(${item.id},1)">+</button>
-                                </div>
-                                <span class="bi-total">₺${(item.price * item.qty).toFixed(2).replace('.',',')}</span>
-                                <button type="button" class="bi-remove" onclick="removeFromBasket(${item.id})">×</button>
+                        <div class="bi-top">
+                            <span class="bi-name" title="${escHtml(item.name)}">${escHtml(item.name)}</span>
+                            <div class="bi-qty-wrap">
+                                <button type="button" class="bi-qty-btn" onclick="changeQty(${item.id},-1)">−</button>
+                                <span class="bi-qty">${item.qty}</span>
+                                <button type="button" class="bi-qty-btn" onclick="changeQty(${item.id},1)">+</button>
                             </div>
-                            <input class="bi-note" type="text" placeholder="Kalem notu (acısız, az pişmiş...)"
-                                   value="${escHtml(item.note)}"
-                                   oninput="updateNote(${item.id}, this.value)"
-                                   maxlength="200" />
+                            <span class="bi-total">₺${(item.price * item.qty).toFixed(2).replace('.',',')}</span>
+                            <button type="button" class="bi-remove" onclick="removeFromBasket(${item.id})" title="Kaldır">×</button>
                         </div>
+                        <input class="bi-note" type="text" placeholder="Kalem notu (acısız, az pişmiş...)"
+                               value="${escHtml(item.note)}"
+                               oninput="updateNote(${item.id}, this.value)"
+                               maxlength="200" />
                     `;
                     container.appendChild(div);
                 });
@@ -540,14 +672,13 @@
 
         function updateTotal() {
             const total = basket.reduce((s, b) => s + b.price * b.qty, 0);
-            document.getElementById('totalAmount').textContent =
-                '₺' + total.toFixed(2).replace('.', ',');
+            document.getElementById('totalAmount').textContent = '₺' + total.toFixed(2).replace('.', ',');
         }
 
         function syncHiddenInputs() {
             const container = document.getElementById('hiddenInputs');
             container.innerHTML = '';
-            basket.forEach((item, i) => {
+            basket.forEach(item => {
                 container.innerHTML += `
                     <input type="hidden" name="menuItemIds" value="${item.id}" />
                     <input type="hidden" name="quantities"  value="${item.qty}" />
@@ -558,20 +689,14 @@
 
         function escHtml(str) {
             return String(str)
-                .replace(/&/g,'&amp;')
-                .replace(/</g,'&lt;')
-                .replace(/>/g,'&gt;')
-                .replace(/"/g,'&quot;')
-                .replace(/'/g,'&#39;');
+                .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
         }
 
-        // Form validasyon
         function validateOrder() {
             let valid = true;
-
-            const garson   = document.getElementById('inp-garson');
+            const garson    = document.getElementById('inp-garson');
             const errGarson = document.getElementById('err-garson');
-
             if (!garson.value.trim()) {
                 errGarson.style.display = 'block';
                 garson.style.borderColor = '#ef4444';
@@ -580,12 +705,7 @@
                 errGarson.style.display = 'none';
                 garson.style.borderColor = '';
             }
-
-            if (basket.length === 0) {
-                alert('Lütfen en az bir ürün ekleyin.');
-                valid = false;
-            }
-
+            if (basket.length === 0) { alert('Lütfen en az bir ürün ekleyin.'); valid = false; }
             return valid;
         }
     </script>
