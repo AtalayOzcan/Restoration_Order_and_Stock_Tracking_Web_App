@@ -13,8 +13,12 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC
             // DbContext
             builder.Services.AddDbContext<RestaurantDbContext>(options =>
             {
+                //options.UseNpgsql(
+                //   builder.Configuration.GetConnectionString("DefaultConnection"));
                 options.UseNpgsql(
-                   builder.Configuration.GetConnectionString("DefaultConnection"));
+                                     "Host=localhost;Port=5432;Database=RestaurantDb;Username=postgres;Password=12345;"
+                                        );
+
 
             });
 
