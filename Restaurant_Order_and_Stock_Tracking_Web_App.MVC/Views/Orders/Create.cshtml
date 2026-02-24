@@ -2,238 +2,378 @@
     ViewData["Title"] = ViewData["Title"]?.ToString() ?? "Adisyon Aç";
     var table = (Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models.Table)ViewBag.Table;
     var categories = (List<Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models.Category>)ViewBag.Categories;
-    int catIndex = 0;
+    var allItems = categories.SelectMany(c => c.MenuItems).ToList();
 }
 
 @section Styles {
     <style>
-        .order-layout {
+        /* ─── POS sayfası layout'u dışa taşıyor (content padding'i ezer) ─── */
+        .content { padding: 0 !important; }
+
+        * { box-sizing: border-box; }
+
+        /* ─── Ana 2 sütun ─────────────────────────────────────────────────── */
+        .pos-wrap {
             display: grid;
-            grid-template-columns: 1fr 360px;
-            gap: 20px;
-            align-items: start;
+            grid-template-columns: 1fr 340px;
+            height: calc(100vh - 56px);   /* topbar yüksekliği */
+            overflow: hidden;
         }
 
-        .menu-panel {
+        /* ══════════════════════════════════════════════════════════════════
+           SOL PANEL — Menü
+        ══════════════════════════════════════════════════════════════════ */
+        .pos-menu {
             display: flex;
             flex-direction: column;
-            gap: 10px;
-        }
-
-        .category-block {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 14px;
             overflow: hidden;
-            transition: border-color .2s;
+            background: var(--surface);
         }
 
-            .category-block:has(.category-head.open) {
-                border-color: rgba(249,115,22,.3);
-            }
-
-        /* ── Tıklanabilir Kategori Bar ── */
-        .category-head {
-            padding: 13px 18px;
-            background: rgba(255,255,255,0.04);
-            font-family: 'Syne', sans-serif;
-            font-size: 12px;
-            font-weight: 800;
-            letter-spacing: .1em;
-            text-transform: uppercase;
-            color: var(--accent);
+        /* ── Üst bar ─── */
+        .pos-header {
+            flex-shrink: 0;
             display: flex;
             align-items: center;
             gap: 10px;
-            cursor: pointer;
-            user-select: none;
-            transition: background .15s;
-            /* Açıkken alt border gelir */
-            border-bottom: 1px solid transparent;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface2);
         }
 
-            .category-head:hover {
-                background: rgba(249,115,22,.06);
-            }
-
-            .category-head.open {
-                background: rgba(249,115,22,.08);
-                border-bottom-color: var(--border);
-            }
-
-        .cat-stripe {
-            width: 3px;
-            height: 15px;
+        .pos-table-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 14px;
             background: var(--accent);
-            border-radius: 2px;
+            color: #fff;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 800;
+            font-family: 'Syne', sans-serif;
+            letter-spacing: .02em;
             flex-shrink: 0;
         }
 
-        .cat-title {
+        .pos-search-wrap {
+            flex: 1;
+            position: relative;
+        }
+
+        .pos-search-wrap input {
+            width: 100%;
+            padding: 9px 12px 9px 36px;
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 13px;
+            outline: none;
+            transition: border-color .15s;
+        }
+        .pos-search-wrap input:focus { border-color: var(--accent); }
+        .pos-search-wrap input::placeholder { color: var(--text-muted); }
+
+        .pos-search-icon {
+            position: absolute;
+            left: 11px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+            opacity: .4;
+            pointer-events: none;
+        }
+
+        .pos-back {
+            flex-shrink: 0;
+            padding: 8px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: all .15s;
+            white-space: nowrap;
+        }
+        .pos-back:hover { color: var(--text); border-color: var(--text-muted); }
+
+        /* ── Kategori Tab Şeridi ─── */
+        .cat-strip {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            overflow-x: auto;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            scrollbar-width: none;
+        }
+        .cat-strip::-webkit-scrollbar { display: none; }
+
+        .cat-btn {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 16px;
+            border-radius: 24px;
+            border: 1.5px solid var(--border);
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 700;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all .18s;
+            letter-spacing: .01em;
+        }
+
+        .cat-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-glow);
+        }
+
+        .cat-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(249,115,22,.35);
+        }
+
+        .cat-btn-n {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            padding: 0 4px;
+            font-size: 10px;
+            font-weight: 800;
+            background: rgba(255,255,255,.18);
+            transition: background .18s;
+        }
+        .cat-btn:not(.active) .cat-btn-n {
+            background: var(--surface2);
+            color: var(--text-muted);
+        }
+
+        /* ── Ürün Alanı ─── */
+        .pos-items {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px 14px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+
+        /* Kategori bölüm başlığı (Tümü modunda) */
+        .cat-block-title {
+            font-size: 10px;
+            font-weight: 800;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: .09em;
+            padding: 2px 0 9px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .cat-block-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .cat-block { margin-bottom: 20px; }
+
+        /* Izgara */
+        .items-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 8px;
+        }
+
+        /* ── Ürün Kartı ─── */
+        .item-card {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            padding: 12px 10px 10px;
+            border-radius: 12px;
+            border: 1.5px solid var(--border);
+            background: var(--surface2);
+            cursor: pointer;
+            user-select: none;
+            transition: border-color .15s, background .15s, transform .12s, box-shadow .15s;
+            overflow: hidden;
+            min-height: 80px;
+        }
+
+        .item-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(249,115,22,.14);
+        }
+
+        /* Sepetteyken → Yeşil */
+        .item-card.selected {
+            border-color: #22c55e !important;
+            background: rgba(34,197,94,.09) !important;
+            box-shadow: 0 4px 16px rgba(34,197,94,.2) !important;
+        }
+
+        /* Aktif tık parlama efekti */
+        .item-card:active { transform: scale(.96); }
+
+        .item-name {
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.35;
+            color: var(--text);
+            /* uzun isimler 2 satırda kesilsin */
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
             flex: 1;
         }
 
-        .cat-item-count {
-            font-size: 10px;
-            font-weight: 600;
-            opacity: .5;
-            font-family: 'DM Sans', sans-serif;
-            letter-spacing: 0;
-            text-transform: none;
+        .item-price {
+            font-family: 'Syne', sans-serif;
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--accent);
         }
 
-        /* Chevron ok */
-        .cat-chevron {
-            width: 18px;
-            height: 18px;
+        .item-card.selected .item-price { color: #22c55e; }
+
+        /* Adet rozeti — sağ üst */
+        .item-qty-badge {
+            position: absolute;
+            top: 7px;
+            right: 7px;
+            min-width: 22px;
+            height: 22px;
+            border-radius: 11px;
+            background: #22c55e;
+            color: #fff;
+            font-family: 'Syne', sans-serif;
+            font-size: 11px;
+            font-weight: 800;
             display: flex;
             align-items: center;
             justify-content: center;
-            flex-shrink: 0;
-            opacity: .65;
-            transition: transform .3s cubic-bezier(.4,0,.2,1), opacity .15s;
+            padding: 0 5px;
+            opacity: 0;
+            transform: scale(.4);
+            transition: opacity .2s, transform .2s cubic-bezier(.34,1.56,.64,1);
+            pointer-events: none;
         }
 
-            .cat-chevron svg {
-                width: 13px;
-                height: 13px;
-                stroke: currentColor;
-                fill: none;
-                stroke-width: 2.5;
-                stroke-linecap: round;
-                stroke-linejoin: round;
-            }
-
-        .category-head.open .cat-chevron {
-            transform: rotate(180deg);
+        .item-card.selected .item-qty-badge {
             opacity: 1;
+            transform: scale(1);
         }
 
-        /* ── Animasyonlu İçerik (grid-template-rows tekniği) ── */
-        .cat-body {
-            display: grid;
-            grid-template-rows: 0fr;
-            transition: grid-template-rows .3s cubic-bezier(.4,0,.2,1);
+        /* Boş durum */
+        .items-empty {
+            display: none;
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+            font-size: 14px;
         }
+        .items-empty.visible { display: block; }
+        .items-empty-icon { font-size: 40px; margin-bottom: 12px; opacity: .4; }
 
-            .cat-body.open {
-                grid-template-rows: 1fr;
-            }
-
-        .cat-body-inner {
-            overflow: hidden;
+        /* Arama etiketi */
+        .search-result-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            margin-bottom: 10px;
+            display: none;
         }
+        .search-result-label.show { display: block; }
 
-        .menu-items-list {
-            padding: 8px;
+        /* ══════════════════════════════════════════════════════════════════
+           SAĞ PANEL — Sepet
+        ══════════════════════════════════════════════════════════════════ */
+        .pos-cart {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            overflow: hidden;
+            border-left: 1px solid var(--border);
+            background: var(--surface);
         }
 
-        .menu-item-row {
+        /* Sepet başlık */
+        .cart-head {
+            flex-shrink: 0;
+            padding: 13px 16px 11px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface2);
+        }
+
+        .cart-head-row {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 12px;
-            border-radius: 9px;
-            border: 1px solid var(--border);
-            background: var(--surface2);
-            cursor: pointer;
-            transition: border-color .15s, background .15s;
+            justify-content: space-between;
+            margin-bottom: 2px;
         }
 
-            .menu-item-row:hover {
-                border-color: var(--accent);
-                background: var(--accent-glow);
-            }
-
-        .mi-name {
-            flex: 1;
-            font-size: 13px;
-            font-weight: 500;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            min-width: 0;
-        }
-
-        .mi-price {
+        .cart-title {
             font-family: 'Syne', sans-serif;
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--accent);
-            flex-shrink: 0;
-            white-space: nowrap;
+            font-size: 16px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        .mi-add {
-            width: 26px;
-            height: 26px;
-            border-radius: 7px;
+        .cart-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 22px;
+            height: 22px;
+            border-radius: 11px;
             background: var(--accent);
             color: #fff;
-            border: none;
-            font-size: 17px;
-            display: grid;
-            place-items: center;
-            cursor: pointer;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 0 6px;
+            transition: transform .2s cubic-bezier(.34,1.56,.64,1);
+        }
+        .cart-count.pop { animation: countPop .28s cubic-bezier(.34,1.56,.64,1); }
+        @@keyframes countPop { 0%,100%{transform:scale(1)} 50%{transform:scale(1.4)} }
+
+        .cart-sub { font-size: 11px; color: var(--text-muted); }
+
+        /* Garson + Not alanları */
+        .cart-fields {
             flex-shrink: 0;
-            transition: background .15s;
-            line-height: 1;
-        }
-
-            .mi-add:hover {
-                background: #ea6c0a;
-            }
-
-        /* ── Sağ Panel ── */
-        .order-panel {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            overflow: hidden;
-            position: sticky;
-            top: 76px;
-            max-height: calc(100vh - 100px);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .order-head {
-            padding: 15px 18px;
-            border-bottom: 1px solid var(--border);
-            flex-shrink: 0;
-        }
-
-        .order-head-title {
-            font-family: 'Syne', sans-serif;
-            font-size: 15px;
-            font-weight: 700;
-        }
-
-        .order-head-sub {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-top: 2px;
-        }
-
-        .order-form-fields {
-            padding: 12px 16px;
+            padding: 12px 14px;
             border-bottom: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            gap: 9px;
-            flex-shrink: 0;
+            gap: 8px;
         }
 
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
+        .f-group { display: flex; flex-direction: column; gap: 3px; }
 
-        .form-label {
+        .f-label {
             font-size: 10px;
             font-weight: 700;
             color: var(--text-muted);
@@ -241,120 +381,108 @@
             letter-spacing: .06em;
         }
 
-        .form-control {
+        .f-input {
             background: var(--surface2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 9px 12px;
+            border: 1.5px solid var(--border);
+            border-radius: 9px;
+            padding: 9px 11px;
             color: var(--text);
             font-family: 'DM Sans', sans-serif;
             font-size: 13px;
             outline: none;
             width: 100%;
             transition: border-color .15s;
-            box-sizing: border-box;
         }
+        .f-input:focus { border-color: var(--accent); }
+        .f-input.error { border-color: #ef4444; }
 
-            .form-control:focus {
-                border-color: var(--accent);
-            }
-
-        .form-error {
+        .f-error {
             font-size: 11px;
             color: #ef4444;
             display: none;
-            margin-top: 2px;
         }
+        .f-error.show { display: block; }
 
-        .basket {
-            padding: 8px;
+        /* Ürün listesi */
+        .cart-items {
             flex: 1;
             overflow-y: auto;
-            min-height: 80px;
+            padding: 8px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
         }
 
-        .basket-empty {
+        .cart-empty {
             text-align: center;
-            padding: 28px 16px;
+            padding: 32px 12px;
             color: var(--text-muted);
             font-size: 13px;
-            line-height: 1.6;
+            line-height: 1.8;
         }
+        .cart-empty-icon { font-size: 34px; display: block; opacity: .35; margin-bottom: 8px; }
 
-        .basket-item {
+        /* Sepet kalemi */
+        .citem {
             padding: 9px 10px;
-            border-radius: 9px;
+            border-radius: 10px;
             background: var(--surface2);
-            border: 1px solid var(--border);
+            border: 1.5px solid var(--border);
             margin-bottom: 6px;
-            animation: fadeIn .18s ease;
+            animation: slideIn .16s ease;
         }
+        @@keyframes slideIn { from{opacity:0;transform:translateX(10px)} to{opacity:1;transform:translateX(0)} }
 
-        @@keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(4px)
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0)
-            }
-        }
-
-        .bi-top {
+        .citem-row1 {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
         }
 
-        .bi-name {
+        .citem-name {
             flex: 1;
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 600;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
             min-width: 0;
         }
 
-        .bi-qty-wrap {
+        .citem-qty-ctrl {
             display: flex;
             align-items: center;
             gap: 4px;
             flex-shrink: 0;
         }
 
-        .bi-qty-btn {
-            width: 22px;
-            height: 22px;
-            border-radius: 5px;
-            border: 1px solid var(--border);
+        .cqbtn {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: 1.5px solid var(--border);
             background: var(--surface);
             color: var(--text);
-            font-size: 13px;
+            font-size: 14px;
             display: grid;
             place-items: center;
             cursor: pointer;
-            transition: background .12s;
-            flex-shrink: 0;
+            transition: all .12s;
+            line-height: 1;
+            font-family: monospace;
         }
+        .cqbtn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-            .bi-qty-btn:hover {
-                background: var(--accent);
-                color: #fff;
-                border-color: var(--accent);
-            }
+        .cqbtn.minus:hover { background: #ef4444; border-color: #ef4444; }
 
-        .bi-qty {
-            width: 22px;
-            text-align: center;
+        .citem-qty {
             font-family: 'Syne', sans-serif;
-            font-weight: 700;
-            font-size: 13px;
+            font-size: 14px;
+            font-weight: 800;
+            min-width: 22px;
+            text-align: center;
         }
 
-        .bi-total {
+        .citem-price {
             font-family: 'Syne', sans-serif;
             font-size: 12px;
             font-weight: 700;
@@ -362,139 +490,134 @@
             min-width: 52px;
             text-align: right;
             flex-shrink: 0;
-            white-space: nowrap;
         }
 
-        .bi-remove {
-            width: 20px;
-            height: 20px;
-            border-radius: 4px;
+        .citem-del {
+            width: 22px;
+            height: 22px;
             border: none;
             background: none;
             color: var(--text-muted);
-            font-size: 15px;
+            font-size: 16px;
             cursor: pointer;
             display: grid;
             place-items: center;
+            border-radius: 5px;
+            transition: all .12s;
             flex-shrink: 0;
-            transition: color .12s;
+            line-height: 1;
         }
+        .citem-del:hover { color: #ef4444; background: rgba(239,68,68,.1); }
 
-            .bi-remove:hover {
-                color: #ef4444;
-            }
-
-        .bi-note {
+        .citem-note {
             width: 100%;
             margin-top: 5px;
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 5px 8px;
+            border-radius: 7px;
+            padding: 5px 9px;
             font-size: 11px;
-            color: var(--text);
-            outline: none;
+            color: var(--text-muted);
             font-family: 'DM Sans', sans-serif;
-            box-sizing: border-box;
+            outline: none;
+            transition: border-color .15s, color .15s;
         }
+        .citem-note:focus { border-color: var(--accent); color: var(--text); }
+        .citem-note::placeholder { color: var(--text-faint); font-size: 11px; }
 
-            .bi-note:focus {
-                border-color: var(--accent);
-            }
-
-        .order-footer {
-            padding: 12px 16px;
+        /* Alt toplam + buton */
+        .cart-foot {
+            flex-shrink: 0;
+            padding: 12px 14px;
             border-top: 1px solid var(--border);
+            background: var(--surface);
             display: flex;
             flex-direction: column;
             gap: 10px;
-            flex-shrink: 0;
         }
 
-        .total-row {
+        .cart-total-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .total-label {
-            font-size: 13px;
+        .cart-total-lbl {
+            font-size: 12px;
             color: var(--text-muted);
-            font-weight: 500;
+            font-weight: 600;
         }
 
-        .total-amount {
+        .cart-total-val {
             font-family: 'Syne', sans-serif;
-            font-size: 22px;
-            font-weight: 800;
+            font-size: 26px;
+            font-weight: 900;
             color: var(--accent);
         }
+        .cart-total-val.bump { animation: totalBump .22s ease; }
+        @@keyframes totalBump { 0%,100%{transform:scale(1)} 50%{transform:scale(1.07)} }
 
-        .btn-submit {
+        .btn-open {
             width: 100%;
-            padding: 12px;
+            padding: 13px;
             background: var(--accent);
             color: #fff;
             border: none;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 700;
+            border-radius: 11px;
+            font-size: 15px;
+            font-weight: 800;
+            font-family: 'DM Sans', sans-serif;
             cursor: pointer;
-            transition: background .15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background .15s, transform .12s, box-shadow .15s;
+            letter-spacing: .01em;
+        }
+        .btn-open:hover:not(:disabled) {
+            background: #ea6c0a;
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(249,115,22,.4);
+        }
+        .btn-open:disabled {
+            background: var(--surface2);
+            color: var(--text-muted);
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
         }
 
-            .btn-submit:hover {
-                background: #ea6c0a;
-            }
-
-            .btn-submit:disabled {
-                background: var(--surface2);
-                color: var(--text-muted);
-                cursor: not-allowed;
-            }
-
-        .alert {
-            padding: 12px 16px;
+        /* Hata alert */
+        .pos-alert {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            z-index: 999;
+            padding: 12px 18px;
             border-radius: 10px;
             font-size: 13px;
-            border: 1px solid;
-            margin-bottom: 16px;
+            border: 1px solid rgba(239,68,68,.3);
+            background: rgba(239,68,68,.12);
+            color: #f87171;
+            animation: alertIn .25s ease;
+            max-width: 320px;
         }
+        @@keyframes alertIn { from{opacity:0;transform:translateX(12px)} to{opacity:1;transform:translateX(0)} }
 
-        .alert-error {
-            background: rgba(239,68,68,.1);
-            border-color: rgba(239,68,68,.3);
-            color: #ef4444;
-        }
-
-        @@media(max-width:900px) {
-            .order-layout {
-                grid-template-columns: 1fr
-            }
-
-            .order-panel {
-                position: static;
-                max-height: none;
-            }
+        /* Responsive */
+        @@media (max-width: 800px) {
+            .pos-wrap { grid-template-columns: 1fr; height: auto; overflow: visible; }
+            .pos-menu { height: 58vh; }
+            .pos-cart { border-left: none; border-top: 1px solid var(--border); }
         }
     </style>
 }
 
 @if (TempData["Error"] != null)
 {
-    <div class="alert alert-error">❌ @TempData["Error"]</div>
+    <div class="pos-alert">❌ @TempData["Error"]</div>
 }
-
-<div class="page-header">
-    <div>
-        <h1 class="page-title">@table.TableName — Yeni Adisyon</h1>
-        <p class="page-sub">Menüden ürün seçin, ardından adisyonu açın</p>
-    </div>
-    <a asp-controller="Tables" asp-action="Index"
-       style="padding:8px 16px;border:1px solid var(--border);border-radius:9px;font-size:13px;color:var(--text-muted);white-space:nowrap;">
-        ← Masalara Dön
-    </a>
-</div>
 
 <form id="orderForm" asp-controller="Orders" asp-action="Create" method="post"
       onsubmit="return validateOrder()">
@@ -502,163 +625,238 @@
     <input type="hidden" name="tableId" value="@table.TableId" />
     <div id="hiddenInputs"></div>
 
-    <div class="order-layout">
+    <div class="pos-wrap">
 
-        @* ── SOL: Menü — Kategoriler varsayılan KAPALI ── *@
-        <div class="menu-panel">
-            @foreach (var cat in categories)
-            {
-                var cid = catIndex++;
-                <div class="category-block">
-                    @* Başlık bar — varsayılan closed (open class yok) *@
-                    <div class="category-head" id="cat-head-@cid" onclick="toggleCategory(@cid)">
-                        <div class="cat-stripe"></div>
-                        <span class="cat-title">@cat.CategoryName</span>
-                        <span class="cat-item-count">@cat.MenuItems.Count ürün</span>
-                        <span class="cat-chevron">
-                            <svg viewBox="0 0 24 24">
-                                <polyline points="6 9 12 15 18 9"></polyline>
-                            </svg>
-                        </span>
-                    </div>
+        @* ══ SOL — Menü ══ *@
+        <div class="pos-menu">
 
-                    @* İçerik — varsayılan collapsed *@
-                    <div class="cat-body" id="cat-body-@cid">
-                        <div class="cat-body-inner">
-                            <div class="menu-items-list">
-                                @foreach (var item in cat.MenuItems)
-                                {
-                                    <div class="menu-item-row"
-                                         onclick="addToBasket(@item.MenuItemId, '@Html.Raw(item.MenuItemName.Replace("'", "\\'"))', @item.MenuItemPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture))">
-                                        <span class="mi-name">@item.MenuItemName</span>
-                                        <span class="mi-price">₺@item.MenuItemPrice.ToString("N2")</span>
-                                        <button type="button" class="mi-add">＋</button>
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    </div>
+            @* Üst bar *@
+            <div class="pos-header">
+                <span class="pos-table-chip">🪑 @table.TableName</span>
+                <div class="pos-search-wrap">
+                    <span class="pos-search-icon">🔍</span>
+                    <input type="text" id="searchInput" placeholder="Ürün ara..."
+                           oninput="doSearch(this.value)"
+                           autocomplete="off" />
                 </div>
-            }
-
-            @if (!categories.Any() || !categories.SelectMany(c => c.MenuItems).Any())
-            {
-                <div style="text-align:center;padding:40px;color:var(--text-muted)">
-                    Menüde aktif ürün bulunmuyor. Önce Menü sayfasından ürün ekleyin.
-                </div>
-            }
-        </div>
-
-        @* ── SAĞ: Adisyon Paneli ── *@
-        <div class="order-panel">
-            <div class="order-head">
-                <div class="order-head-title">Adisyon</div>
-                <div class="order-head-sub">@table.TableName • @table.TableCapacity kişilik</div>
+                <a asp-controller="Tables" asp-action="Index" class="pos-back">← Masalar</a>
             </div>
 
-            <div class="order-form-fields">
-                <div class="form-group">
-                    <label class="form-label">Garson Adı *</label>
-                    <input class="form-control" id="inp-garson" name="openedBy"
-                           placeholder="Adınızı girin..." maxlength="100" />
-                    <span class="form-error" id="err-garson">Garson adı boş olamaz.</span>
+            @* Kategori şeridi *@
+            <div class="cat-strip">
+                <button type="button" class="cat-btn active"
+                        data-cat="all" onclick="filterCat('all',this)">
+                    Tümü
+                    <span class="cat-btn-n">@allItems.Count</span>
+                </button>
+                @foreach (var cat in categories)
+                {
+                    <button type="button" class="cat-btn"
+                            data-cat="cat-@cat.CategoryId"
+                            onclick="filterCat('cat-@cat.CategoryId',this)">
+                        @cat.CategoryName
+                        <span class="cat-btn-n">@cat.MenuItems.Count</span>
+                    </button>
+                }
+            </div>
+
+            @* Ürünler *@
+            <div class="pos-items" id="posItems">
+                <div class="search-result-label" id="searchLabel"></div>
+
+                @foreach (var cat in categories)
+                {
+                    <div class="cat-block" id="cat-@cat.CategoryId">
+                        <div class="cat-block-title">@cat.CategoryName</div>
+                        <div class="items-grid">
+                            @foreach (var mi in cat.MenuItems)
+                            {
+                                <div class="item-card"
+                                     id="icard-@mi.MenuItemId"
+                                     data-id="@mi.MenuItemId"
+                                     data-name="@Html.Raw(mi.MenuItemName.Replace("\"", "&quot;").Replace("'", "&#39;"))"
+                                     data-price="@mi.MenuItemPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
+                                     data-cat="cat-@cat.CategoryId"
+                                     data-keywords="@mi.MenuItemName.ToLower()"
+                                     onclick="addItem(@mi.MenuItemId)">
+                                    <div class="item-name">@mi.MenuItemName</div>
+                                    <div class="item-price">₺@mi.MenuItemPrice.ToString("N2")</div>
+                                    <div class="item-qty-badge" id="badge-@mi.MenuItemId"></div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <div class="items-empty" id="itemsEmpty">
+                    <div class="items-empty-icon">🔍</div>
+                    Ürün bulunamadı.
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Masa Notu</label>
-                    <input class="form-control" name="orderNote"
+            </div>
+
+        </div>
+
+        @* ══ SAĞ — Sepet ══ *@
+        <div class="pos-cart">
+
+            <div class="cart-head">
+                <div class="cart-head-row">
+                    <span class="cart-title">
+                        Adisyon
+                        <span class="cart-count" id="cartCount">0</span>
+                    </span>
+                </div>
+                <div class="cart-sub">@table.TableName · @table.TableCapacity kişilik</div>
+            </div>
+
+            <div class="cart-fields">
+                <div class="f-group">
+                    <label class="f-label">Garson Adı *</label>
+                    <input class="f-input" id="inp-garson" name="openedBy"
+                           placeholder="Adınızı girin..." maxlength="100"
+                           oninput="clearErr('garson')" />
+                    <span class="f-error" id="err-garson">Garson adı boş olamaz.</span>
+                </div>
+                <div class="f-group">
+                    <label class="f-label">Masa Notu</label>
+                    <input class="f-input" name="orderNote"
                            placeholder="Doğum günü, özel istek..." maxlength="300" />
                 </div>
             </div>
 
-            <div class="basket" id="basket">
-                <div class="basket-empty" id="basketEmpty">
-                    Henüz ürün eklenmedi.<br>Soldan ürün seçin.
+            <div class="cart-items" id="cartItems">
+                <div class="cart-empty" id="cartEmpty">
+                    <span class="cart-empty-icon">🛒</span>
+                    Henüz ürün eklenmedi.<br>
+                    <small style="font-size:12px;opacity:.7">Soldan bir ürüne tıklayın.</small>
                 </div>
             </div>
 
-            <div class="order-footer">
-                <div class="total-row">
-                    <span class="total-label">Toplam</span>
-                    <span class="total-amount" id="totalAmount">₺0,00</span>
+            <div class="cart-foot">
+                <div class="cart-total-row">
+                    <span class="cart-total-lbl">Toplam</span>
+                    <span class="cart-total-val" id="cartTotal">₺0,00</span>
                 </div>
-                <button type="submit" class="btn-submit" id="submitBtn" disabled>
-                    Adisyonu Aç
+                <button type="submit" class="btn-open" id="btnOpen" disabled>
+                    ✓ &nbsp;Adisyonu Aç
                 </button>
             </div>
-        </div>
 
+        </div>
     </div>
 </form>
 
 @section Scripts {
     <script>
-        /* ── Kategori Aç/Kapat ── */
-        function toggleCategory(id) {
-            const head = document.getElementById('cat-head-' + id);
-            const body = document.getElementById('cat-body-' + id);
-            const opening = !head.classList.contains('open');
-            head.classList.toggle('open');
-            body.classList.toggle('open');
+        /* ════════════════════════════════════════════════════════════
+           STATE
+        ════════════════════════════════════════════════════════════ */
+        const basket = {}; // { [id]: { id, name, price, qty, note } }
+
+        /* ════════════════════════════════════════════════════════════
+           ÜRÜN EKLE / ÇIKAR
+        ════════════════════════════════════════════════════════════ */
+        function addItem(id) {
+            const card = document.getElementById('icard-' + id);
+            if (!card) return;
+
+            const name  = card.dataset.name;
+            const price = parseFloat(card.dataset.price);
+
+            if (basket[id]) {
+                basket[id].qty++;
+            } else {
+                basket[id] = { id, name, price, qty: 1, note: '' };
+            }
+
+            // Kart → yeşil + rozet
+            card.classList.add('selected');
+            updateBadge(id);
+
+            // Küçük "tıkladım" geri bildirimi
+            card.style.transform = 'scale(.94)';
+            setTimeout(() => card.style.transform = '', 120);
+
+            render();
         }
 
-        /* ── Sepet ── */
-        const basket = [];
-
-        function addToBasket(id, name, price) {
-            const existing = basket.find(b => b.id === id);
-            if (existing) { existing.qty++; }
-            else { basket.push({ id, name, price, qty: 1, note: '' }); }
-            renderBasket();
-        }
-
-        function removeFromBasket(id) {
-            const idx = basket.findIndex(b => b.id === id);
-            if (idx > -1) basket.splice(idx, 1);
-            renderBasket();
+        function removeItem(id) {
+            delete basket[id];
+            const card = document.getElementById('icard-' + id);
+            if (card) {
+                card.classList.remove('selected');
+                updateBadge(id);
+            }
+            render();
         }
 
         function changeQty(id, delta) {
-            const item = basket.find(b => b.id === id);
-            if (!item) return;
-            item.qty += delta;
-            if (item.qty < 1) { removeFromBasket(id); return; }
-            renderBasket();
+            if (!basket[id]) return;
+            basket[id].qty += delta;
+            if (basket[id].qty < 1) { removeItem(id); return; }
+            updateBadge(id);
+            render();
         }
 
-        function updateNote(id, note) {
-            const item = basket.find(b => b.id === id);
-            if (item) item.note = note;
-            syncHiddenInputs();
+        function updateNote(id, val) {
+            if (basket[id]) basket[id].note = val;
+            syncHidden();
         }
 
-        function renderBasket() {
-            const container = document.getElementById('basket');
-            const empty     = document.getElementById('basketEmpty');
-            container.querySelectorAll('.basket-item').forEach(el => el.remove());
+        function updateBadge(id) {
+            const badge = document.getElementById('badge-' + id);
+            if (!badge) return;
+            const item = basket[id];
+            badge.textContent = item ? item.qty : '';
+        }
 
-            if (basket.length === 0) {
+        /* ════════════════════════════════════════════════════════════
+           RENDER
+        ════════════════════════════════════════════════════════════ */
+        function render() {
+            const items   = Object.values(basket);
+            const container = document.getElementById('cartItems');
+            const empty   = document.getElementById('cartEmpty');
+            const count   = document.getElementById('cartCount');
+            const total   = document.getElementById('cartTotal');
+            const btnOpen = document.getElementById('btnOpen');
+
+            // Mevcut citem'leri temizle
+            container.querySelectorAll('.citem').forEach(el => el.remove());
+
+            const totalQty = items.reduce((s, i) => s + i.qty, 0);
+            const totalAmt = items.reduce((s, i) => s + i.price * i.qty, 0);
+
+            // Count rozeti
+            count.textContent = totalQty;
+            count.classList.remove('pop');
+            void count.offsetWidth;
+            count.classList.add('pop');
+
+            if (items.length === 0) {
                 empty.style.display = 'block';
-                document.getElementById('submitBtn').disabled = true;
+                btnOpen.disabled = true;
             } else {
                 empty.style.display = 'none';
-                document.getElementById('submitBtn').disabled = false;
+                btnOpen.disabled = false;
 
-                basket.forEach(item => {
+                items.forEach(item => {
                     const div = document.createElement('div');
-                    div.className = 'basket-item';
+                    div.className = 'citem';
                     div.innerHTML = `
-                        <div class="bi-top">
-                            <span class="bi-name" title="${escHtml(item.name)}">${escHtml(item.name)}</span>
-                            <div class="bi-qty-wrap">
-                                <button type="button" class="bi-qty-btn" onclick="changeQty(${item.id},-1)">−</button>
-                                <span class="bi-qty">${item.qty}</span>
-                                <button type="button" class="bi-qty-btn" onclick="changeQty(${item.id},1)">+</button>
+                        <div class="citem-row1">
+                            <span class="citem-name" title="${esc(item.name)}">${esc(item.name)}</span>
+                            <div class="citem-qty-ctrl">
+                                <button type="button" class="cqbtn minus" onclick="changeQty(${item.id},-1)">−</button>
+                                <span class="citem-qty">${item.qty}</span>
+                                <button type="button" class="cqbtn" onclick="changeQty(${item.id},1)">+</button>
                             </div>
-                            <span class="bi-total">₺${(item.price * item.qty).toFixed(2).replace('.',',')}</span>
-                            <button type="button" class="bi-remove" onclick="removeFromBasket(${item.id})" title="Kaldır">×</button>
+                            <span class="citem-price">₺${(item.price * item.qty).toFixed(2).replace('.',',')}</span>
+                            <button type="button" class="citem-del" onclick="removeItem(${item.id})" title="Kaldır">×</button>
                         </div>
-                        <input class="bi-note" type="text" placeholder="Kalem notu (acısız, az pişmiş...)"
-                               value="${escHtml(item.note)}"
+                        <input class="citem-note" type="text"
+                               placeholder="Not: acısız, az pişmiş..."
+                               value="${esc(item.note)}"
                                oninput="updateNote(${item.id}, this.value)"
                                maxlength="200" />
                     `;
@@ -666,47 +864,170 @@
                 });
             }
 
-            updateTotal();
-            syncHiddenInputs();
+            // Toplam animasyonlu güncelle
+            total.classList.remove('bump');
+            void total.offsetWidth;
+            total.classList.add('bump');
+            total.textContent = '₺' + totalAmt.toFixed(2).replace('.', ',');
+
+            syncHidden();
         }
 
-        function updateTotal() {
-            const total = basket.reduce((s, b) => s + b.price * b.qty, 0);
-            document.getElementById('totalAmount').textContent = '₺' + total.toFixed(2).replace('.', ',');
-        }
-
-        function syncHiddenInputs() {
-            const container = document.getElementById('hiddenInputs');
-            container.innerHTML = '';
-            basket.forEach(item => {
-                container.innerHTML += `
+        /* ════════════════════════════════════════════════════════════
+           HIDDEN INPUT SYNC
+        ════════════════════════════════════════════════════════════ */
+        function syncHidden() {
+            const cont = document.getElementById('hiddenInputs');
+            cont.innerHTML = '';
+            Object.values(basket).forEach(item => {
+                cont.innerHTML += `
                     <input type="hidden" name="menuItemIds" value="${item.id}" />
                     <input type="hidden" name="quantities"  value="${item.qty}" />
-                    <input type="hidden" name="itemNotes"   value="${escHtml(item.note)}" />
+                    <input type="hidden" name="itemNotes"   value="${esc(item.note)}" />
                 `;
             });
         }
 
-        function escHtml(str) {
+        /* ════════════════════════════════════════════════════════════
+           KATEGORİ FİLTRE
+        ════════════════════════════════════════════════════════════ */
+        let activeCat = 'all';
+
+        function filterCat(catKey, btn) {
+            activeCat = catKey;
+
+            // Arama temizle
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchLabel').classList.remove('show');
+
+            // Tab durumu
+            document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Tüm kartları göster / gizle
+            document.querySelectorAll('.item-card').forEach(c => c.style.display = '');
+
+            // Kategori bloklarını göster / gizle
+            document.querySelectorAll('.cat-block').forEach(block => {
+                const show = catKey === 'all' || block.id === catKey;
+                block.style.display = show ? '' : 'none';
+            });
+
+            document.getElementById('itemsEmpty').classList.remove('visible');
+        }
+
+        /* ════════════════════════════════════════════════════════════
+           ARAMA
+        ════════════════════════════════════════════════════════════ */
+        function doSearch(q) {
+            q = q.toLowerCase().trim();
+            const label = document.getElementById('searchLabel');
+
+            if (!q) {
+                // Arama boş → aktif kategoriye dön
+                filterCat(activeCat, document.querySelector(`.cat-btn[data-cat="${activeCat}"]`));
+                return;
+            }
+
+            // Tab aktifliğini kaldır (arama modundayken)
+            document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+
+            // Tüm blokları aç
+            document.querySelectorAll('.cat-block').forEach(b => b.style.display = '');
+
+            // Kartları filtrele
+            let found = 0;
+            document.querySelectorAll('.item-card').forEach(card => {
+                const match = card.dataset.keywords.includes(q);
+                card.style.display = match ? '' : 'none';
+                if (match) found++;
+            });
+
+            // Boş kalan kategori bloklarını gizle
+            document.querySelectorAll('.cat-block').forEach(block => {
+                const anyVisible = [...block.querySelectorAll('.item-card')]
+                    .some(c => c.style.display !== 'none');
+                block.style.display = anyVisible ? '' : 'none';
+            });
+
+            label.textContent = `"${q}" — ${found} ürün bulundu`;
+            label.classList.toggle('show', true);
+
+            const emptyEl = document.getElementById('itemsEmpty');
+            emptyEl.classList.toggle('visible', found === 0);
+        }
+
+        // Escape ile aramayı kapat
+        document.getElementById('searchInput').addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                e.target.value = '';
+                doSearch('');
+                e.target.blur();
+            }
+        });
+
+        /* ════════════════════════════════════════════════════════════
+           FORM VALİDASYON
+        ════════════════════════════════════════════════════════════ */
+        function clearErr(field) {
+            if (field === 'garson') {
+                document.getElementById('inp-garson').classList.remove('error');
+                document.getElementById('err-garson').classList.remove('show');
+            }
+        }
+
+        function validateOrder() {
+            let ok = true;
+            const garson = document.getElementById('inp-garson');
+            const errG   = document.getElementById('err-garson');
+
+            if (!garson.value.trim()) {
+                garson.classList.add('error');
+                errG.classList.add('show');
+                garson.focus();
+                ok = false;
+            } else {
+                garson.classList.remove('error');
+                errG.classList.remove('show');
+            }
+
+            if (Object.keys(basket).length === 0) {
+                // Küçük alert yerine sepet panelini hafifçe shake yap
+                const cart = document.querySelector('.pos-cart');
+                cart.style.animation = 'none';
+                void cart.offsetWidth;
+                cart.style.animation = 'shake .35s ease';
+                ok = false;
+            }
+
+            return ok;
+        }
+
+        // Sepet shake animasyonu
+        const shakeStyle = document.createElement('style');
+        shakeStyle.textContent = `
+        @@keyframes shake {
+            0%,100%{transform:translateX(0)}
+            20%{transform:translateX(-5px)}
+            40%{transform:translateX(5px)}
+            60%{transform:translateX(-4px)}
+            80%{transform:translateX(4px)}
+        }`;
+        document.head.appendChild(shakeStyle);
+
+        /* ════════════════════════════════════════════════════════════
+           YARDIMCI
+        ════════════════════════════════════════════════════════════ */
+        function esc(str) {
             return String(str)
                 .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
                 .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
         }
 
-        function validateOrder() {
-            let valid = true;
-            const garson    = document.getElementById('inp-garson');
-            const errGarson = document.getElementById('err-garson');
-            if (!garson.value.trim()) {
-                errGarson.style.display = 'block';
-                garson.style.borderColor = '#ef4444';
-                valid = false;
-            } else {
-                errGarson.style.display = 'none';
-                garson.style.borderColor = '';
-            }
-            if (basket.length === 0) { alert('Lütfen en az bir ürün ekleyin.'); valid = false; }
-            return valid;
-        }
+        // Alert otomatik kaybol
+        setTimeout(() => {
+            const a = document.querySelector('.pos-alert');
+            if (a) { a.style.transition='opacity .5s'; a.style.opacity='0'; setTimeout(()=>a.remove(),500); }
+        }, 3000);
     </script>
 }
