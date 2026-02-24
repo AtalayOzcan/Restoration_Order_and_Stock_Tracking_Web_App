@@ -601,6 +601,165 @@
             font-family: 'DM Sans',sans-serif;
         }
 
+
+        /* ✅ #3: Kalem bazlı ödeme seçim paneli */
+        .item-sel-panel {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 14px;
+        }
+
+        .item-sel-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: var(--surface2);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            user-select: none;
+        }
+
+            .item-sel-head:hover {
+                color: var(--text);
+            }
+
+        .item-sel-body {
+            display: none;
+        }
+
+            .item-sel-body.open {
+                display: block;
+            }
+
+        .isel-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 14px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+
+            .isel-row:last-child {
+                border-bottom: none;
+            }
+
+        .isel-name {
+            flex: 1;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .isel-price {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-right: 4px;
+        }
+
+        .isel-ctrl {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .isel-minus, .isel-plus {
+            width: 22px;
+            height: 22px;
+            border-radius: 5px;
+            border: 1px solid var(--border);
+            background: var(--surface2);
+            color: var(--text);
+            font-size: 14px;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            transition: all .12s;
+            line-height: 1;
+            font-family: monospace;
+        }
+
+            .isel-minus:hover {
+                border-color: #ef4444;
+                color: #ef4444;
+                background: rgba(239,68,68,.1);
+            }
+
+            .isel-plus:hover {
+                border-color: var(--accent);
+                color: var(--accent);
+                background: var(--accent-glow);
+            }
+
+        .isel-qty {
+            font-family: 'Syne',sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            min-width: 24px;
+            text-align: center;
+        }
+
+            .isel-qty.has-sel {
+                color: var(--accent);
+            }
+
+        .isel-subtotal {
+            font-family: 'Syne',sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            color: #22c55e;
+            min-width: 54px;
+            text-align: right;
+        }
+
+        .isel-total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: var(--surface2);
+            border-top: 1px solid var(--border);
+            font-size: 13px;
+        }
+
+        .isel-total-val {
+            font-family: 'Syne',sans-serif;
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--accent);
+        }
+
+        .isel-apply-btn {
+            padding: 5px 14px;
+            border-radius: 7px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'DM Sans',sans-serif;
+            transition: background .15s;
+        }
+
+            .isel-apply-btn:hover {
+                background: #ea6c0a;
+            }
+
+            .isel-apply-btn:disabled {
+                background: var(--surface2);
+                color: var(--text-muted);
+                cursor: not-allowed;
+            }
+
         .pay-modal-summary {
             background: var(--surface2);
             border-radius: 10px;
@@ -953,7 +1112,54 @@
 <div class="modal-overlay" id="payModal">
     <div class="modal">
         <div class="modal-title">Ödeme Al</div>
-        <div class="modal-sub">Kısmi ödeme alabilir, farklı yöntemler seçebilirsiniz</div>
+        <div class="modal-sub">Ürün seçerek veya tutarı girerek ödeme alın</div>
+
+        @* ✅ #3: Kalem bazlı ödeme — Sipariş ürünlerini listele *@
+        <div class="item-sel-panel" id="itemSelPanel">
+            <div class="item-sel-head" onclick="toggleItemSelPanel()">
+                <span>🧾 Ürün Seçerek Hesapla</span>
+                <span id="itemSelPanelArrow">▸</span>
+            </div>
+            <div class="item-sel-body" id="itemSelBody">
+                @foreach (var item in Model.OrderItems.Where(i => i.OrderItemStatus != "cancelled"))
+                {
+                    var unitPrice = item.OrderItemQuantity > 0
+                    ? item.OrderItemUnitPrice
+                    : 0;
+                    <div class="isel-row"
+                         data-item-id="@item.OrderItemId"
+                         data-max-qty="@item.OrderItemQuantity"
+                         data-unit-price="@item.OrderItemUnitPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)">
+                        <div class="isel-name">@item.MenuItem?.MenuItemName</div>
+                        <div class="isel-price">₺@item.OrderItemUnitPrice.ToString("N2")/ad</div>
+                        <div class="isel-ctrl">
+                            <button type="button" class="isel-minus"
+                                    onclick="iselChange(@item.OrderItemId, -1)"
+                                    id="isel-minus-@item.OrderItemId">
+                                −
+                            </button>
+                            <span class="isel-qty" id="isel-qty-@item.OrderItemId">0</span>/<span style="font-size:11px;color:var(--text-muted)">@item.OrderItemQuantity</span>
+                            <button type="button" class="isel-plus"
+                                    onclick="iselChange(@item.OrderItemId, 1)"
+                                    id="isel-plus-@item.OrderItemId">
+                                +
+                            </button>
+                        </div>
+                        <div class="isel-subtotal" id="isel-sub-@item.OrderItemId">₺0</div>
+                    </div>
+                }
+                <div class="isel-total-row">
+                    <div>
+                        <span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;">Seçilen Toplam</span><br>
+                        <span class="isel-total-val" id="iselTotalVal">₺0,00</span>
+                    </div>
+                    <button type="button" class="isel-apply-btn" id="iselApplyBtn"
+                            onclick="applyItemSelection()" disabled>
+                        Ödeme Tutarına Aktar →
+                    </button>
+                </div>
+            </div>
+        </div>
 
         @* Özet *@
         <div class="pay-modal-summary">
@@ -1078,6 +1284,75 @@
         }
 
         // ✅ Form submit öncesi hidden input'lara noktalı değer yaz
+        // ── ✅ #3: Kalem bazlı ödeme seçim sistemi ─────────────────
+        // Her ürün için seçilen adet
+        const iselState = {}; // { itemId: { selected, max, unitPrice } }
+
+        // Sayfa yüklenince state'i doldur
+        document.querySelectorAll('.isel-row').forEach(row => {
+            const id        = parseInt(row.dataset.itemId);
+            const max       = parseInt(row.dataset.maxQty);
+            const unitPrice = parseFloat(row.dataset.unitPrice);
+            iselState[id]   = { selected: 0, max, unitPrice };
+        });
+
+        function toggleItemSelPanel() {
+            const body  = document.getElementById('itemSelBody');
+            const arrow = document.getElementById('itemSelPanelArrow');
+            const open  = body.classList.toggle('open');
+            arrow.textContent = open ? '▾' : '▸';
+        }
+
+        function iselChange(itemId, delta) {
+            const s = iselState[itemId];
+            if (!s) return;
+            s.selected = Math.max(0, Math.min(s.max, s.selected + delta));
+
+            // Qty göster
+            const qtyEl = document.getElementById('isel-qty-' + itemId);
+            qtyEl.textContent = s.selected;
+            qtyEl.classList.toggle('has-sel', s.selected > 0);
+
+            // Subtotal göster
+            const sub = s.selected * s.unitPrice;
+            document.getElementById('isel-sub-' + itemId).textContent =
+                s.selected > 0 ? '₺' + sub.toFixed(2).replace('.', ',') : '₺0';
+
+            // Eksi butonu: seçilen 0 ise disabled görünümü
+            const minusBtn = document.getElementById('isel-minus-' + itemId);
+            const plusBtn  = document.getElementById('isel-plus-'  + itemId);
+            minusBtn.style.opacity = s.selected === 0   ? '0.3' : '1';
+            plusBtn.style.opacity  = s.selected === s.max ? '0.3' : '1';
+
+            // Genel toplam güncelle
+            updateIselTotal();
+        }
+
+        function updateIselTotal() {
+            let total = 0;
+            Object.values(iselState).forEach(s => { total += s.selected * s.unitPrice; });
+            document.getElementById('iselTotalVal').textContent =
+                '₺' + total.toFixed(2).replace('.', ',');
+            const btn = document.getElementById('iselApplyBtn');
+            btn.disabled = total <= 0;
+        }
+
+        function applyItemSelection() {
+            let total = 0;
+            Object.values(iselState).forEach(s => { total += s.selected * s.unitPrice; });
+            if (total <= 0) return;
+            // Tutarı ödeme alanına yaz
+            document.getElementById('paymentAmountDisplay').value =
+                total.toFixed(2).replace('.', ',');
+            updateChange();
+            // Paneli kapat
+            const body  = document.getElementById('itemSelBody');
+            const arrow = document.getElementById('itemSelPanelArrow');
+            body.classList.remove('open');
+            arrow.textContent = '▸';
+        }
+        // ── kalem seçim sonu ─────────────────────────────────────────
+
         function syncAndValidatePayment() {
             const payDisplay  = document.getElementById('paymentAmountDisplay').value;
             const discDisplay = document.getElementById('discountAmountDisplay').value;
