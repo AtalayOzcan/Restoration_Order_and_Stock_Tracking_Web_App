@@ -6,38 +6,25 @@
     var isOpen = Model.OrderStatus == "open";
     var minutesOpen = (int)(DateTime.UtcNow - Model.OrderOpenedAt).TotalMinutes;
     var totalPaid = Model.Payments?.Sum(p => p.PaymentsAmount) ?? 0;
+
+    // Kalan = ödenmiş ürünlerin tutarı değil, ödeme kayıtlarının toplamına göre
     var remaining = Model.OrderTotalAmount - totalPaid;
 
-    // Durum sıralaması — sadece ileri gidilebilir
-    // pending → preparing → served   (geri alınamaz)
-    int StatusOrder(string s) => s switch { "preparing" => 1, "served" => 2, "cancelled" => 99, _ => 0 };
+    // Sadece aktif (iptal olmayan) kalemler
+    var activeItems = Model.OrderItems.Where(i => i.OrderItemStatus != "cancelled").ToList();
 
-    string StatusClass(string s) => s switch
-    {
-        "preparing" => "s-preparing",
-        "served" => "s-served",
-        "cancelled" => "s-cancelled",
-        _ => "s-pending"
-    };
-    string StatusLabel(string s) => s switch
-    {
-        "preparing" => "Hazırlanıyor",
-        "served" => "Servis Edildi",
-        "cancelled" => "İptal",
-        _ => "Bekliyor"
-    };
-    string PayMethodLabel(int m) => m switch
-    {
-        1 => "💳 Kredi Kartı",
-        2 => "🏦 Banka Kartı",
-        3 => "🔄 Diğer",
-        _ => "💵 Nakit"
-    };
+    // Ödenmemiş kalem toplamı (görsel için)
+    var unpaidTotal = activeItems.Sum(i => i.UnpaidLineTotal);
+    var paidTotal = activeItems.Sum(i => i.PaidLineTotal);
+
+    int StatusOrder(string s) => s switch { "preparing" => 1, "served" => 2, "cancelled" => 99, _ => 0 };
+    string StatusClass(string s) => s switch { "preparing" => "s-preparing", "served" => "s-served", "cancelled" => "s-cancelled", _ => "s-pending" };
+    string StatusLabel(string s) => s switch { "preparing" => "Hazırlanıyor", "served" => "Servis Edildi", "cancelled" => "İptal", _ => "Bekliyor" };
+    string PayMethodLabel(int m) => m switch { 1 => "💳 Kredi Kartı", 2 => "🏦 Banka Kartı", 3 => "🔄 Diğer", _ => "💵 Nakit" };
 }
 
 @section Styles {
     <style>
-        /* ── LAYOUT ── */
         .detail-layout {
             display: grid;
             grid-template-columns: 1fr 340px;
@@ -105,10 +92,10 @@
             font-weight: 700;
         }
 
-        /* ── ORDER ITEM ROW ── */
+        /* ── KALEM SATIRI ── */
         .item-row {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 10px;
             padding: 12px 16px;
             border-bottom: 1px solid var(--border);
@@ -123,6 +110,21 @@
                 background: var(--surface2);
             }
 
+            /* Kısmen ödenmiş satır — soluk arka plan */
+            .item-row.partially-paid {
+                background: rgba(34,197,94,.04);
+            }
+
+            .item-row.fully-paid {
+                background: rgba(34,197,94,.07);
+                opacity: .75;
+            }
+
+        .item-info {
+            flex: 1;
+            min-width: 0;
+        }
+
         .item-name {
             font-size: 14px;
             font-weight: 500;
@@ -134,6 +136,42 @@
             margin-top: 2px;
         }
 
+        /* Ödeme durumu satırı */
+        .item-pay-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 5px;
+            font-size: 11px;
+            flex-wrap: wrap;
+        }
+
+        .pay-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 7px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .pay-chip-paid {
+            background: rgba(34,197,94,.12);
+            color: #22c55e;
+        }
+
+        .pay-chip-remain {
+            background: var(--surface2);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+
+        .pay-chip-full {
+            background: rgba(34,197,94,.15);
+            color: #22c55e;
+        }
+
         .item-qty {
             font-size: 12px;
             color: var(--text-muted);
@@ -142,16 +180,33 @@
             flex-shrink: 0;
         }
 
+        .item-price-col {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            flex-shrink: 0;
+            min-width: 72px;
+        }
+
         .item-price {
             font-family: 'Syne',sans-serif;
             font-size: 14px;
             font-weight: 700;
-            min-width: 72px;
-            text-align: right;
-            flex-shrink: 0;
         }
 
-        /* ── STATUS FLOW — Tek yönlü ilerleme butonları ── */
+        .item-price-unpaid {
+            font-family: 'Syne',sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .item-price-paid-label {
+            font-size: 10px;
+            color: #22c55e;
+        }
+
+        /* ── STATUS FLOW ── */
         .status-flow {
             display: flex;
             align-items: center;
@@ -159,13 +214,6 @@
             flex-shrink: 0;
         }
 
-        .sflow-step {
-            display: flex;
-            align-items: center;
-            gap: 0;
-        }
-
-        /* Aktif durum badge */
         .sflow-current {
             display: inline-flex;
             align-items: center;
@@ -179,7 +227,6 @@
             flex-shrink: 0;
         }
 
-        /* İleri alma butonu */
         .sflow-btn {
             padding: 4px 9px;
             border-radius: 7px;
@@ -269,7 +316,7 @@
                 background: rgba(239,68,68,.08);
             }
 
-        /* ── ÜRÜN EKLE — Kategori bazlı görsel ── */
+        /* ── ÜRÜN EKLE ── */
         .add-panel-body {
             display: flex;
             flex-direction: column;
@@ -612,15 +659,15 @@
                 background: var(--accent-glow);
             }
 
+        .discount-row .form-control {
+            flex: 1;
+        }
+
         .discount-row {
             display: flex;
             align-items: center;
             gap: 8px;
         }
-
-            .discount-row .form-control {
-                flex: 1;
-            }
 
         .discount-label {
             font-size: 12px;
@@ -666,7 +713,7 @@
             font-family: 'DM Sans',sans-serif;
         }
 
-        /* Kalem bazlı ödeme */
+        /* ── Kalem bazlı ödeme seçim paneli ── */
         .item-sel-panel {
             border: 1px solid var(--border);
             border-radius: 10px;
@@ -712,6 +759,11 @@
 
             .isel-row:last-child {
                 border-bottom: none;
+            }
+
+            .isel-row.all-paid {
+                opacity: .4;
+                pointer-events: none;
             }
 
         .isel-name {
@@ -932,6 +984,7 @@
             }
             else
             {
+
                 <span>Kapatıldı · @Model.OrderClosedAt?.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</span>
             }
         </p>
@@ -968,7 +1021,7 @@
             </div>
             <div>
                 <div class="info-item-label">Süre</div>
-                <div class="info-item-value @(minutesOpen > 30 ? "text-danger" : "")">⏱ @minutesOpen dk</div>
+                <div class="info-item-value">⏱ @minutesOpen dk</div>
             </div>
             <div>
                 <div class="info-item-label">Durum</div>
@@ -992,40 +1045,84 @@
             </div>
         }
 
-        @* Sipariş Kalemleri *@
+        @* ── Sipariş Kalemleri ── *@
         <div class="panel">
             <div class="panel-head">
                 <span class="panel-title">Sipariş Kalemleri</span>
                 <span style="font-size:12px;color:var(--text-muted)">
-                    @Model.OrderItems.Count(i => i.OrderItemStatus != "cancelled") kalem
+                    @activeItems.Count kalem
+                    @if (totalPaid > 0 && isOpen)
+                    {
+                        <span style="color:#22c55e;margin-left:6px">· ₺@paidTotal.ToString("N2") ödendi</span>
+                    }
                 </span>
             </div>
 
             @foreach (var item in Model.OrderItems)
             {
-                var currentOrder = StatusOrder(item.OrderItemStatus);
+                bool isCancelled = item.OrderItemStatus == "cancelled";
+                bool isFullyPaid = !isCancelled && item.PaidQuantity >= item.OrderItemQuantity;
+                bool isPartiallyPaid = !isCancelled && item.PaidQuantity > 0 && item.PaidQuantity < item.OrderItemQuantity;
 
-                <div class="item-row">
-                    <div style="flex:1;min-width:0;">
-                        <div class="item-name">@item.MenuItem?.MenuItemName</div>
+                string rowClass = isFullyPaid ? "fully-paid" : isPartiallyPaid ? "partially-paid" : "";
+
+                <div class="item-row @rowClass">
+                    <div class="item-info">
+                        <div class="item-name">
+                            @if (isFullyPaid)
+                            {
+                                <span style="color:#22c55e;margin-right:4px">✓</span>
+                            }
+                            @item.MenuItem?.MenuItemName
+                        </div>
+
                         @if (!string.IsNullOrWhiteSpace(item.OrderItemNote))
                         {
                             <div class="item-note">📝 @item.OrderItemNote</div>
                         }
-                    </div>
-                    <div class="item-qty">×@item.OrderItemQuantity</div>
-                    <div class="item-price">₺@item.OrderItemLineTotal.ToString("N2")</div>
 
-                    @if (isOpen && item.OrderItemStatus != "cancelled")
+                        @* Ödeme durumu chip'leri — yalnızca kısmi ödeme varsa göster *@
+                        @if (!isCancelled && item.PaidQuantity > 0 && !isFullyPaid)
+                        {
+                            <div class="item-pay-status">
+                                <span class="pay-chip pay-chip-paid">✓ @item.PaidQuantity ödendi</span>
+                                <span class="pay-chip pay-chip-remain">@item.RemainingQuantity kaldı</span>
+                            </div>
+                        }
+                        @if (isFullyPaid)
+                        {
+                            <div class="item-pay-status">
+                                <span class="pay-chip pay-chip-full">✓ Tamamen ödendi</span>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="item-qty">×@item.OrderItemQuantity</div>
+
+                    @* Fiyat kolonu *@
+                    <div class="item-price-col">
+                        @if (isPartiallyPaid)
+                        {
+                            @* Kısmi ödemede: kalan + ödenen ayrı göster *@
+                            <div class="item-price-unpaid">₺@item.UnpaidLineTotal.ToString("N2")</div>
+                            <div class="item-price-paid-label">+₺@item.PaidLineTotal.ToString("N2") ödendi</div>
+                        }
+                        else
+                        {
+                            <div class="item-price" style="@(isFullyPaid ? "color:#22c55e" : "")">
+                                ₺@item.OrderItemLineTotal.ToString("N2")
+                            </div>
+                        }
+                    </div>
+
+                    @* Durum kontrolleri *@
+                    @if (isOpen && !isCancelled && !isFullyPaid)
                     {
-                        @* Tek yönlü ilerleme akışı — mevcut durum badge + sadece sonraki adım butonu *@
                         <div class="status-flow">
-                            @* Mevcut durum göstergesi *@
                             <span class="sflow-current @StatusClass(item.OrderItemStatus)">
                                 @StatusLabel(item.OrderItemStatus)
                             </span>
 
-                            @* Sonraki adım butonu — sadece ileri gidilebilir *@
                             @if (item.OrderItemStatus == "pending")
                             {
                                 <span class="sflow-arrow">→</span>
@@ -1048,7 +1145,6 @@
                                     <button type="submit" class="sflow-btn sflow-btn-serve">Servis Et ✓</button>
                                 </form>
                             }
-                            @* served → artık buton yok, sadece badge görünür *@
                         </div>
                     }
                     else
@@ -1059,9 +1155,22 @@
                     }
                 </div>
             }
+
+            @* Özet satırı — kısmi ödeme varsa *@
+            @if (isOpen && totalPaid > 0)
+            {
+                <div style="padding:10px 16px;background:var(--surface2);display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+                    <span style="color:var(--text-muted)">Ödenmiş ürünler toplamı</span>
+                    <span style="color:#22c55e;font-weight:700">₺@paidTotal.ToString("N2")</span>
+                </div>
+                <div style="padding:10px 16px;background:var(--surface2);border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:13px;">
+                    <span style="font-weight:600">Kalan (ödenmemiş)</span>
+                    <span style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--accent)">₺@remaining.ToString("N2")</span>
+                </div>
+            }
         </div>
 
-        @* Yeni Ürün Ekle — sadece açık adisyonda *@
+        @* Yeni Ürün Ekle *@
         @if (isOpen)
         {
             <div class="panel">
@@ -1160,12 +1269,10 @@
     <div class="modal" style="width:360px">
         <div class="modal-title" id="addItemTitle">Ürün Ekle</div>
         <div class="modal-sub" id="addItemSub">Adet ve not bilgisini girin</div>
-
         <form asp-controller="Orders" asp-action="AddItem" method="post" onsubmit="return validateAddItem()">
             @Html.AntiForgeryToken()
             <input type="hidden" name="orderId" value="@Model.OrderId" />
             <input type="hidden" name="menuItemId" id="addItemId" />
-
             <div class="form-group">
                 <label class="form-label">Adet *</label>
                 <input class="form-control" id="addItemQty" name="quantity" type="number" min="1" max="99" value="1" />
@@ -1189,24 +1296,33 @@
         <div class="modal-title">Ödeme Al</div>
         <div class="modal-sub">Ürün seçerek veya tutarı girerek ödeme alın</div>
 
+        @* Kalem bazlı seçim — sadece ödenmemiş kalemler listelenir *@
         <div class="item-sel-panel" id="itemSelPanel">
             <div class="item-sel-head" onclick="toggleItemSelPanel()">
                 <span>🧾 Ürün Seçerek Hesapla</span>
                 <span id="itemSelPanelArrow">▸</span>
             </div>
             <div class="item-sel-body" id="itemSelBody">
-                @foreach (var item in Model.OrderItems.Where(i => i.OrderItemStatus != "cancelled"))
+                @foreach (var item in activeItems)
                 {
-                    <div class="isel-row"
-                         data-item-id="@item.OrderItemId"
-                         data-max-qty="@item.OrderItemQuantity"
-                         data-unit-price="@item.OrderItemUnitPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)">
-                        <div class="isel-name">@item.MenuItem?.MenuItemName</div>
+                    bool allPaid = item.PaidQuantity >= item.OrderItemQuantity;
+                    int maxSel = item.RemainingQuantity;   // Sadece kalan adet seçilebilir
+                                                           <div class="isel-row @(allPaid ? "all-paid" : "")"
+                                                                data-item-id="@item.OrderItemId"
+                                                                data-max-qty="@maxSel"
+                                                                data-unit-price="@item.OrderItemUnitPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)">
+                                                               <div class="isel-name">
+                                                                   @item.MenuItem?.MenuItemName
+                            @if (allPaid)
+                            {
+                                <span style="font-size:10px;color:#22c55e"> ✓ ödendi</span>
+                            }
+                        </div>
                         <div class="isel-price">₺@item.OrderItemUnitPrice.ToString("N2")/ad</div>
                         <div class="isel-ctrl">
-                            <button type="button" class="isel-minus" onclick="iselChange(@item.OrderItemId, -1)" id="isel-minus-@item.OrderItemId">−</button>
-                            <span class="isel-qty" id="isel-qty-@item.OrderItemId">0</span>/<span style="font-size:11px;color:var(--text-muted)">@item.OrderItemQuantity</span>
-                            <button type="button" class="isel-plus" onclick="iselChange(@item.OrderItemId,  1)" id="isel-plus-@item.OrderItemId">+</button>
+                            <button type="button" class="isel-minus" onclick="iselChange(@item.OrderItemId,-1)" id="isel-minus-@item.OrderItemId" style="opacity:.3">−</button>
+                            <span class="isel-qty" id="isel-qty-@item.OrderItemId">0</span>/<span style="font-size:11px;color:var(--text-muted)">@maxSel</span>
+                            <button type="button" class="isel-plus" onclick="iselChange(@item.OrderItemId, 1)" id="isel-plus-@item.OrderItemId" style="@(allPaid ? "opacity:.3" : "")">+</button>
                         </div>
                         <div class="isel-subtotal" id="isel-sub-@item.OrderItemId">₺0</div>
                     </div>
@@ -1249,12 +1365,13 @@
             <input type="hidden" name="paymentMethod" id="selectedMethod" value="cash" />
             <input type="hidden" name="paymentAmountStr" id="paymentAmountStr" />
             <input type="hidden" name="discountAmountStr" id="discountAmountStr" />
+            @* Kalem bazlı seçimler — syncAndValidatePayment tarafından doldurulur *@
+            <div id="iselHiddenInputs"></div>
 
             <div class="form-group">
                 <label class="form-label">Ödeyen Kişi (opsiyonel)</label>
                 <input class="form-control" name="payerName" placeholder="Ali Yılmaz veya boş bırakın" maxlength="100" />
             </div>
-
             <div class="form-group">
                 <label class="form-label">Ödeme Yöntemi *</label>
                 <div class="method-grid">
@@ -1264,7 +1381,6 @@
                     <button type="button" class="method-btn" onclick="selectMethod(this,'other')">🔄 Diğer</button>
                 </div>
             </div>
-
             <div class="form-group">
                 <label class="form-label">İndirim Tutarı</label>
                 <div class="discount-row">
@@ -1272,7 +1388,6 @@
                     <span class="discount-label" id="discount-label" style="display:none">Net: ₺<span id="net-amount">0</span></span>
                 </div>
             </div>
-
             <div class="form-group">
                 <label class="form-label">Ödeme Tutarı *</label>
                 <input class="form-control" id="paymentAmountDisplay" type="text" inputmode="decimal" placeholder="0,00" oninput="updateChange()" />
@@ -1283,12 +1398,10 @@
                     Kalan tutarı doldur (₺@remaining.ToString("N2"))
                 </button>
             </div>
-
             <div id="changeRow" class="form-group" style="display:none">
                 <label class="form-label">Para Üstü</label>
                 <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#22c55e;padding:4px 0" id="changeDisplay">₺0,00</div>
             </div>
-
             <div class="modal-footer">
                 <button type="button" class="btn-ghost" onclick="closeModal('payModal')">İptal</button>
                 <button type="submit" class="btn-primary">Ödemeyi Kaydet</button>
@@ -1310,13 +1423,15 @@
             return isNaN(val) ? 0 : val;
         }
 
-        // ── Kalem seçim ──
+        // ── Kalem seçim state'i ─────────────────────────────────────────
+        // max = RemainingQuantity (sunucu tarafında hesaplandı, data-max-qty'da)
         const iselState = {};
         document.querySelectorAll('.isel-row').forEach(row => {
             const id        = parseInt(row.dataset.itemId);
             const max       = parseInt(row.dataset.maxQty);
             const unitPrice = parseFloat(row.dataset.unitPrice);
             iselState[id]   = { selected: 0, max, unitPrice };
+            // max=0 ise zaten all-paid class'ı var
         });
 
         function toggleItemSelPanel() {
@@ -1328,24 +1443,28 @@
 
         function iselChange(itemId, delta) {
             const s = iselState[itemId];
-            if (!s) return;
+            if (!s || s.max === 0) return;
             s.selected = Math.max(0, Math.min(s.max, s.selected + delta));
-            const qtyEl = document.getElementById('isel-qty-' + itemId);
+
+            const qtyEl = document.getElementById('isel-qty-'   + itemId);
             qtyEl.textContent = s.selected;
             qtyEl.classList.toggle('has-sel', s.selected > 0);
+
             const sub = s.selected * s.unitPrice;
-            document.getElementById('isel-sub-' + itemId).textContent =
+            document.getElementById('isel-sub-'   + itemId).textContent =
                 s.selected > 0 ? '₺' + sub.toFixed(2).replace('.', ',') : '₺0';
+
             document.getElementById('isel-minus-' + itemId).style.opacity = s.selected === 0     ? '0.3' : '1';
             document.getElementById('isel-plus-'  + itemId).style.opacity = s.selected === s.max ? '0.3' : '1';
+
             updateIselTotal();
         }
 
         function updateIselTotal() {
             let total = 0;
             Object.values(iselState).forEach(s => { total += s.selected * s.unitPrice; });
-            document.getElementById('iselTotalVal').textContent = '₺' + total.toFixed(2).replace('.', ',');
-            document.getElementById('iselApplyBtn').disabled = total <= 0;
+            document.getElementById('iselTotalVal').textContent  = '₺' + total.toFixed(2).replace('.', ',');
+            document.getElementById('iselApplyBtn').disabled     = total <= 0;
         }
 
         function applyItemSelection() {
@@ -1358,16 +1477,36 @@
             document.getElementById('itemSelPanelArrow').textContent = '▸';
         }
 
+        // Formu gönderirken kalem seçimlerini hidden input olarak ekle
+        function buildIselHiddenInputs() {
+            const container = document.getElementById('iselHiddenInputs');
+            container.innerHTML = '';
+            let hasAnySelection = false;
+            Object.entries(iselState).forEach(([id, s]) => {
+                if (s.selected > 0) {
+                    hasAnySelection = true;
+                    container.innerHTML +=
+                        `<input type="hidden" name="paidItemIds"  value="${id}" />` +
+                        `<input type="hidden" name="paidItemQtys" value="${s.selected}" />`;
+                }
+            });
+            return hasAnySelection;
+        }
+
         function syncAndValidatePayment() {
             const payDisplay  = document.getElementById('paymentAmountDisplay').value;
             const discDisplay = document.getElementById('discountAmountDisplay').value;
-            const payVal  = parseLocalDecimal(payDisplay);
-            const discVal = parseLocalDecimal(discDisplay);
-            const err = document.getElementById('err-amount');
+            const payVal      = parseLocalDecimal(payDisplay);
+            const discVal     = parseLocalDecimal(discDisplay);
+            const err         = document.getElementById('err-amount');
+
             if (payVal <= 0) { err.style.display = 'block'; return false; }
             err.style.display = 'none';
+
             document.getElementById('paymentAmountStr').value  = payVal.toFixed(2);
             document.getElementById('discountAmountStr').value = discVal.toFixed(2);
+
+            buildIselHiddenInputs(); // Kalem seçimlerini hidden input'lara ekle
             return true;
         }
 
@@ -1412,7 +1551,7 @@
                 discRow.style.display   = 'flex';
                 discLabel.style.display = 'inline';
                 document.getElementById('pms-discount-val').textContent = '-₺' + disc.toFixed(2).replace('.', ',');
-                document.getElementById('net-amount').textContent = netFull.toFixed(2).replace('.', ',');
+                document.getElementById('net-amount').textContent       = netFull.toFixed(2).replace('.', ',');
             } else {
                 discRow.style.display   = 'none';
                 discLabel.style.display = 'none';

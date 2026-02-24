@@ -13,11 +13,9 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC
             // DbContext
             builder.Services.AddDbContext<RestaurantDbContext>(options =>
             {
-                //options.UseNpgsql(
-                //    builder.Configuration.GetConnectionString("DefaultConnection"));
                 options.UseNpgsql(
-                                "Host=localhost;Port=5432;Database=RestaurantDb;Username=postgres;Password=12345;"
-                                    );
+                   builder.Configuration.GetConnectionString("DefaultConnection"));
+
             });
 
             // Background Service — rezervasyon otomatik temizleme
