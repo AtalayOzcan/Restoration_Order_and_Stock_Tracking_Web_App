@@ -4,14 +4,14 @@
 
     // Filtrelenmiş listeler (arama varsa bunlar filtrelidir)
     var activeOrders = (List<Order>)ViewBag.ActiveOrders;
-    var pastOrders   = (List<Order>)ViewBag.PastOrders;
+    var pastOrders = (List<Order>)ViewBag.PastOrders;
 
     // Summary bar için FİLTRELENMEMİŞ gerçek günlük veriler
-    var allActiveOrders  = (List<Order>)ViewBag.AllActiveOrders;
-    var allTodayRevenue  = (decimal)ViewBag.AllTodayRevenue;
+    var allActiveOrders = (List<Order>)ViewBag.AllActiveOrders;
+    var allTodayRevenue = (decimal)ViewBag.AllTodayRevenue;
     var allTodayPaidCount = (int)ViewBag.AllTodayPaidCount;
 
-    var activeTab   = ViewData["ActiveTab"]?.ToString() ?? "active";
+    var activeTab = ViewData["ActiveTab"]?.ToString() ?? "active";
     var searchTable = ViewBag.SearchTable as string ?? "";
 
     int MinutesOpen(DateTime openedAt) => (int)(DateTime.UtcNow - openedAt).TotalMinutes;
@@ -20,215 +20,512 @@
 }
 
 @section Styles {
-<style>
-    .summary-bar {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px,1fr));
-        gap: 12px;
-        margin-bottom: 22px;
-    }
+    <style>
+        .summary-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px,1fr));
+            gap: 12px;
+            margin-bottom: 22px;
+        }
 
-    .summary-chip {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 14px 16px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        transition: transform .15s;
-        min-width: 0;
-        overflow: hidden;
-    }
+        .summary-chip {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: transform .15s;
+            min-width: 0;
+            overflow: hidden;
+        }
 
-    .summary-chip:hover { transform: translateY(-1px); }
-    .chip-icon { font-size: 22px; flex-shrink: 0; }
+            .summary-chip:hover {
+                transform: translateY(-1px);
+            }
 
-    .chip-val {
-        font-family: 'Syne', sans-serif;
-        font-size: clamp(14px, 3.5vw, 18px);
-        font-weight: 800;
-        line-height: 1.1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        width: 100%;
-    }
+        .chip-icon {
+            font-size: 22px;
+            flex-shrink: 0;
+        }
 
-    .chip-lbl {
-        font-size: 10px;
-        color: var(--text-muted);
-        margin-top: 2px;
-        line-height: 1.2;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+        .chip-val {
+            font-family: 'Syne', sans-serif;
+            font-size: clamp(14px, 3.5vw, 18px);
+            font-weight: 800;
+            line-height: 1.1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            width: 100%;
+        }
 
-    .toolbar {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 12px;
-        margin-bottom: 18px;
-        flex-wrap: wrap;
-    }
+        .chip-lbl {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 2px;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
 
-    .tab-bar {
-        display: flex;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 4px;
-    }
+        .toolbar {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
 
-    .tab-btn {
-        padding: 8px 22px;
-        border-radius: 7px;
-        font-size: 13px;
-        font-weight: 600;
-        cursor: pointer;
-        color: var(--text-muted);
-        border: none;
-        background: none;
-        font-family: 'DM Sans', sans-serif;
-        transition: all .15s;
-        display: flex;
-        align-items: center;
-        gap: 7px;
-    }
+        .tab-bar {
+            display: flex;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 4px;
+        }
 
-    .tab-btn.active { background: var(--accent); color: #fff; }
-    .tab-count { font-size: 10px; padding: 1px 6px; border-radius: 20px; background: rgba(255,255,255,.2); }
-    .tab-btn:not(.active) .tab-count { background: var(--surface2); color: var(--text-muted); }
+        .tab-btn {
+            padding: 8px 22px;
+            border-radius: 7px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--text-muted);
+            border: none;
+            background: none;
+            font-family: 'DM Sans', sans-serif;
+            transition: all .15s;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
 
-    .search-wrap { position: relative; flex: 1; max-width: 320px; }
-    .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); font-size: 14px; pointer-events: none; }
+            .tab-btn.active {
+                background: var(--accent);
+                color: #fff;
+            }
 
-    .search-input {
-        width: 100%; padding: 8px 34px; background: var(--surface);
-        border: 1px solid var(--border); border-radius: 9px; color: var(--text);
-        font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none;
-        transition: border-color .15s; box-sizing: border-box;
-    }
-    .search-input:focus { border-color: var(--accent); }
-    .search-input::placeholder { color: var(--text-muted); }
+        .tab-count {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 20px;
+            background: rgba(255,255,255,.2);
+        }
 
-    .search-clear {
-        position: absolute; right: 9px; top: 50%; transform: translateY(-50%);
-        cursor: pointer; font-size: 12px; color: var(--text-muted);
-        background: none; border: none; padding: 2px 4px; border-radius: 4px;
-    }
-    .search-clear:hover { color: var(--text); }
-    .search-hint { font-size: 11px; color: var(--accent); margin-top: 4px; }
+        .tab-btn:not(.active) .tab-count {
+            background: var(--surface2);
+            color: var(--text-muted);
+        }
 
-    .orders-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(290px,1fr));
-        gap: 14px;
-    }
+        .search-wrap {
+            position: relative;
+            flex: 1;
+            max-width: 320px;
+        }
 
-    .order-card {
-        background: var(--surface); border: 1px solid var(--border);
-        border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;
-        transition: transform .15s, box-shadow .15s;
-    }
-    .order-card:hover { transform: translateY(-3px); box-shadow: 0 10px 32px rgba(0,0,0,.4); }
-    .order-card.overdue { border-color: rgba(239,68,68,.4); }
-    .order-card.card-paid { border-color: rgba(34,197,94,.2); }
+        .search-icon {
+            position: absolute;
+            left: 11px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+            pointer-events: none;
+        }
 
-    .card-head {
-        padding: 13px 16px; border-bottom: 1px solid var(--border);
-        display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    }
-    .card-head-left { display: flex; align-items: center; gap: 8px; }
-    .card-num { font-family: 'Syne',sans-serif; font-size: 13px; font-weight: 800; color: var(--text-muted); }
-    .card-table-name { font-family: 'Syne',sans-serif; font-size: 15px; font-weight: 700; }
-    .card-head-right { display: flex; align-items: center; gap: 6px; }
+        .search-input {
+            width: 100%;
+            padding: 8px 34px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            color: var(--text);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 13px;
+            outline: none;
+            transition: border-color .15s;
+            box-sizing: border-box;
+        }
 
-    .card-body { padding: 13px 16px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
-    .card-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+            .search-input:focus {
+                border-color: var(--accent);
+            }
 
-    .items-box { background: var(--surface2); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 5px; }
-    .item-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
-    .item-name { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .item-price { font-weight: 600; color: var(--text); white-space: nowrap; margin-left: 6px; }
+            .search-input::placeholder {
+                color: var(--text-muted);
+            }
 
-    .card-foot { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-    .card-total { font-family: 'Syne',sans-serif; font-size: 20px; font-weight: 800; color: var(--accent); }
-    .card-total.muted { color: var(--text-muted); }
-    .card-actions { display: flex; gap: 6px; }
+        .search-clear {
+            position: absolute;
+            right: 9px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text-muted);
+            background: none;
+            border: none;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
 
-    .btn-detail {
-        padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border);
-        background: none; color: var(--text-muted); font-size: 11px; font-weight: 700;
-        cursor: pointer; font-family: 'DM Sans',sans-serif; transition: all .15s;
-        text-decoration: none; display: inline-flex; align-items: center; gap: 4px;
-    }
-    .btn-detail:hover { color: var(--text); border-color: var(--text-muted); }
+            .search-clear:hover {
+                color: var(--text);
+            }
 
-    .status-badge {
-        display: inline-block; font-size: 10px; font-weight: 700;
-        letter-spacing: .05em; text-transform: uppercase; padding: 3px 9px; border-radius: 20px;
-    }
-    .s-open { background: var(--accent-glow); color: var(--accent); }
-    .s-preparing { background: rgba(234,179,8,.12); color: #eab308; }
-    .s-served { background: rgba(34,197,94,.12); color: #22c55e; }
-    .s-paid { background: rgba(34,197,94,.12); color: #22c55e; }
-    .s-cancelled { background: rgba(239,68,68,.12); color: #ef4444; }
+        .search-hint {
+            font-size: 11px;
+            color: var(--accent);
+            margin-top: 4px;
+        }
 
-    .time-badge {
-        font-size: 10px; background: var(--surface2); border: 1px solid var(--border);
-        padding: 3px 8px; border-radius: 20px; color: var(--text-muted); white-space: nowrap;
-    }
-    .time-badge.hot { border-color: rgba(239,68,68,.4); color: #f87171; background: rgba(239,68,68,.08); }
+        .orders-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(290px,1fr));
+            gap: 14px;
+        }
 
-    .date-group-header { grid-column: 1/-1; display: flex; align-items: center; gap: 10px; margin-top: 6px; }
-    .date-group-label { font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: .07em; text-transform: uppercase; white-space: nowrap; }
-    .date-group-line { flex: 1; height: 1px; background: var(--border); }
-    .date-group-count { font-size: 10px; color: var(--text-muted); background: var(--surface2); border: 1px solid var(--border); padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+        .order-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: transform .15s, box-shadow .15s;
+        }
 
-    .pay-row { display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
-    .pay-method { color: var(--text-muted); }
-    .closed-time { font-size: 11px; color: var(--text-muted); }
-    .note-box { font-size: 11px; color: var(--text-muted); background: var(--surface2); border-radius: 7px; padding: 7px 10px; }
+            .order-card:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 10px 32px rgba(0,0,0,.4);
+            }
 
-    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
-    .empty-icon { font-size: 48px; margin-bottom: 12px; }
+            .order-card.overdue {
+                border-color: rgba(239,68,68,.4);
+            }
 
-    .alert { padding: 12px 16px; border-radius: 10px; font-size: 13px; border: 1px solid; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-    .alert-success { background: rgba(34,197,94,.1); border-color: rgba(34,197,94,.3); color: #22c55e; }
-    .alert-error   { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.3); color: #ef4444; }
+            .order-card.card-paid {
+                border-color: rgba(34,197,94,.2);
+            }
 
-    .today-banner {
-        background: linear-gradient(135deg,rgba(99,102,241,.12),rgba(168,85,247,.08));
-        border: 1px solid rgba(99,102,241,.3);
-        border-radius: 12px; padding: 11px 16px; margin-bottom: 16px;
-        font-size: 12px; color: var(--text-muted);
-    }
-    .today-banner strong { color: var(--accent); }
+        .card-head {
+            padding: 13px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
 
-    /* Arama aktifken hafif filtre bildirimi */
-    .filter-notice {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 11px;
-        color: var(--accent);
-        background: var(--accent-glow);
-        border: 1px solid rgba(249,115,22,.25);
-        border-radius: 20px;
-        padding: 3px 10px;
-        margin-top: 5px;
-    }
+        .card-head-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
-    @@media(max-width:600px) {
-        .orders-grid { grid-template-columns: 1fr; }
-        .summary-bar { grid-template-columns: 1fr 1fr; }
-        .toolbar { flex-direction: column; align-items: stretch; }
-        .search-wrap { max-width: 100%; }
-    }
-</style>
+        .card-num {
+            font-family: 'Syne',sans-serif;
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--text-muted);
+        }
+
+        .card-table-name {
+            font-family: 'Syne',sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .card-head-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .card-body {
+            padding: 13px 16px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .card-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .items-box {
+            background: var(--surface2);
+            border-radius: 10px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+
+        .item-name {
+            color: var(--text-muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .item-price {
+            font-weight: 600;
+            color: var(--text);
+            white-space: nowrap;
+            margin-left: 6px;
+        }
+
+        .card-foot {
+            padding: 12px 16px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-total {
+            font-family: 'Syne',sans-serif;
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--accent);
+        }
+
+            .card-total.muted {
+                color: var(--text-muted);
+            }
+
+        .card-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .btn-detail {
+            padding: 7px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: none;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'DM Sans',sans-serif;
+            transition: all .15s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+            .btn-detail:hover {
+                color: var(--text);
+                border-color: var(--text-muted);
+            }
+
+        .status-badge {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            padding: 3px 9px;
+            border-radius: 20px;
+        }
+
+        .s-open {
+            background: var(--accent-glow);
+            color: var(--accent);
+        }
+
+        .s-preparing {
+            background: rgba(234,179,8,.12);
+            color: #eab308;
+        }
+
+        .s-served {
+            background: rgba(34,197,94,.12);
+            color: #22c55e;
+        }
+
+        .s-paid {
+            background: rgba(34,197,94,.12);
+            color: #22c55e;
+        }
+
+        .s-cancelled {
+            background: rgba(239,68,68,.12);
+            color: #ef4444;
+        }
+
+        .time-badge {
+            font-size: 10px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            padding: 3px 8px;
+            border-radius: 20px;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+            .time-badge.hot {
+                border-color: rgba(239,68,68,.4);
+                color: #f87171;
+                background: rgba(239,68,68,.08);
+            }
+
+        .date-group-header {
+            grid-column: 1/-1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 6px;
+        }
+
+        .date-group-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            letter-spacing: .07em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .date-group-line {
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .date-group-count {
+            font-size: 10px;
+            color: var(--text-muted);
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            padding: 2px 8px;
+            border-radius: 20px;
+            white-space: nowrap;
+        }
+
+        .pay-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+
+        .pay-method {
+            color: var(--text-muted);
+        }
+
+        .closed-time {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .note-box {
+            font-size: 11px;
+            color: var(--text-muted);
+            background: var(--surface2);
+            border-radius: 7px;
+            padding: 7px 10px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            border: 1px solid;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .alert-success {
+            background: rgba(34,197,94,.1);
+            border-color: rgba(34,197,94,.3);
+            color: #22c55e;
+        }
+
+        .alert-error {
+            background: rgba(239,68,68,.1);
+            border-color: rgba(239,68,68,.3);
+            color: #ef4444;
+        }
+
+        .today-banner {
+            background: linear-gradient(135deg,rgba(99,102,241,.12),rgba(168,85,247,.08));
+            border: 1px solid rgba(99,102,241,.3);
+            border-radius: 12px;
+            padding: 11px 16px;
+            margin-bottom: 16px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+            .today-banner strong {
+                color: var(--accent);
+            }
+
+        /* Arama aktifken hafif filtre bildirimi */
+        .filter-notice {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--accent);
+            background: var(--accent-glow);
+            border: 1px solid rgba(249,115,22,.25);
+            border-radius: 20px;
+            padding: 3px 10px;
+            margin-top: 5px;
+        }
+
+        @@media(max-width:600px) {
+            .orders-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .summary-bar {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .search-wrap {
+                max-width: 100%;
+            }
+        }
+    </style>
 }
 
 @if (TempData["Success"] != null)
@@ -326,14 +623,14 @@
             @foreach (var order in activeOrders)
             {
                 var minutes = MinutesOpen(order.OrderOpenedAt);
-                var isHot   = minutes > 30;
+                var isHot = minutes > 30;
 
                 var dominantStatus = order.OrderItems.Any()
-                    ? order.OrderItems.Where(i => i.OrderItemStatus != "cancelled")
-                        .GroupBy(i => i.OrderItemStatus)
-                        .OrderByDescending(g => g.Count())
-                        .FirstOrDefault()?.Key ?? "open"
-                    : "open";
+                ? order.OrderItems.Where(i => i.OrderItemStatus != "cancelled")
+                .GroupBy(i => i.OrderItemStatus)
+                .OrderByDescending(g => g.Count())
+                .FirstOrDefault()?.Key ?? "open"
+                : "open";
 
                 string BadgeClass(string s) => s switch { "preparing" => "s-preparing", "served" => "s-served", _ => "s-open" };
                 string BadgeLabel(string s) => s switch { "preparing" => "Hazırlanıyor", "served" => "Servis Edildi", _ => "Açık" };
@@ -401,17 +698,22 @@
     }
     else
     {
-       
-            var grouped = pastOrders
-                .GroupBy(o => o.OrderOpenedAt.ToLocalTime().Date)
-                .OrderByDescending(g => g.Key);
-        
+
+        // Masa birleştirmesi sonucu oluşan cancelled+toplam=0 adisyonları gizle
+        var visiblePast = pastOrders
+        .Where(o => !(o.OrderStatus == "cancelled" && o.OrderTotalAmount == 0))
+        .ToList();
+
+        var grouped = visiblePast
+        .GroupBy(o => o.OrderOpenedAt.ToLocalTime().Date)
+        .OrderByDescending(g => g.Key);
+
 
         <div class="orders-grid">
             @foreach (var group in grouped)
             {
-                var groupDate    = group.Key;
-                var groupLabel   = groupDate == today ? "Bugün" : groupDate.ToString("dd MMMM yyyy", new System.Globalization.CultureInfo("tr-TR"));
+                var groupDate = group.Key;
+                var groupLabel = groupDate == today ? "Bugün" : groupDate.ToString("dd MMMM yyyy", new System.Globalization.CultureInfo("tr-TR"));
                 var groupRevenue = group.Where(o => o.OrderStatus == "paid").Sum(o => o.OrderTotalAmount);
 
                 <div class="date-group-header">
@@ -423,10 +725,10 @@
 
                 @foreach (var order in group.OrderByDescending(o => o.OrderClosedAt))
                 {
-                    var payment     = order.Payments?.FirstOrDefault();
+                    var payment = order.Payments?.FirstOrDefault();
                     var allPayments = order.Payments ?? new List<Payment>();
-                    var closedMins  = order.OrderClosedAt.HasValue
-                        ? (int)(order.OrderClosedAt.Value - order.OrderOpenedAt).TotalMinutes : 0;
+                    var closedMins = order.OrderClosedAt.HasValue
+                    ? (int)(order.OrderClosedAt.Value - order.OrderOpenedAt).TotalMinutes : 0;
 
                     <div class="order-card @(order.OrderStatus == "paid" ? "card-paid" : "")">
                         <div class="card-head">
@@ -489,34 +791,34 @@
 </div>
 
 @section Scripts {
-<script>
-    function switchTab(name, btn) {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById('tabActive').classList.add('d-none');
-        document.getElementById('tabPast').classList.add('d-none');
-        document.getElementById('tab' + (name === 'active' ? 'Active' : 'Past')).classList.remove('d-none');
-        document.getElementById('tabHidden').value = name;
-    }
+    <script>
+        function switchTab(name, btn) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('tabActive').classList.add('d-none');
+            document.getElementById('tabPast').classList.add('d-none');
+            document.getElementById('tab' + (name === 'active' ? 'Active' : 'Past')).classList.remove('d-none');
+            document.getElementById('tabHidden').value = name;
+        }
 
-    function onSearchInput() {
-        clearTimeout(window._searchTimer);
-        window._searchTimer = setTimeout(() => {
+        function onSearchInput() {
+            clearTimeout(window._searchTimer);
+            window._searchTimer = setTimeout(() => {
+                document.getElementById('searchForm').submit();
+            }, 600);
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
             document.getElementById('searchForm').submit();
-        }, 600);
-    }
+        }
 
-    function clearSearch() {
-        document.getElementById('searchInput').value = '';
-        document.getElementById('searchForm').submit();
-    }
-
-    setTimeout(() => {
-        document.querySelectorAll('.alert').forEach(a => {
-            a.style.transition = 'opacity .5s';
-            a.style.opacity = '0';
-            setTimeout(() => a.remove(), 500);
-        });
-    }, 3000);
-</script>
+        setTimeout(() => {
+            document.querySelectorAll('.alert').forEach(a => {
+                a.style.transition = 'opacity .5s';
+                a.style.opacity = '0';
+                setTimeout(() => a.remove(), 500);
+            });
+        }, 3000);
+    </script>
 }
