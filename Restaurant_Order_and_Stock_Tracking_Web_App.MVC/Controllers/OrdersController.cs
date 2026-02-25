@@ -537,6 +537,83 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
             }
             catch { await tx.RollbackAsync(); TempData["Error"] = "Adisyon kapatılırken hata oluştu."; return RedirectToAction(nameof(Detail), new { id = orderId }); }
         }
+
+        // ─────────────────────────────────────────────────────────────
+        // POST /Orders/CloseZero
+        //
+        // Sıfır tutarlı adisyonu ödeme almadan kapat.
+        //
+        // Güvenlik şartları:
+        //   1. OrderTotalAmount == 0  (veya Payments toplamı >= total)
+        //   2. Hiçbir aktif (iptal edilmemiş) kalem kalmamış olmalı
+        //      → tüm ürünler ya CancelledQuantity == OrderItemQuantity
+        //        ya da OrderItemStatus == "cancelled" olmalı
+        //   Bu iki şart sağlanmazsa işlem reddedilir.
+        //
+        // Sonuç: Order.OrderStatus = "cancelled", Table.TableStatus = 0
+        // ─────────────────────────────────────────────────────────────
+        [HttpPost, ValidateAntiForgeryToken]
+        public async Task<IActionResult> CloseZero(int orderId)
+        {
+            var order = await _db.Orders
+                .Include(o => o.Table)
+                .Include(o => o.OrderItems)
+                .FirstOrDefaultAsync(o => o.OrderId == orderId);
+
+            if (order == null)
+            {
+                TempData["Error"] = "Adisyon bulunamadı.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (order.OrderStatus != "open")
+            {
+                TempData["Error"] = "Bu adisyon zaten kapatılmış.";
+                return RedirectToAction(nameof(Detail), new { id = orderId });
+            }
+
+            // ── Güvenlik kontrolü 1: Tutar sıfır olmalı ──────────────
+            if (order.OrderTotalAmount > 0.001m)
+            {
+                TempData["Error"] = "Adisyon tutarı sıfır olmadığı için bu yöntemle kapatılamaz.";
+                return RedirectToAction(nameof(Detail), new { id = orderId });
+            }
+
+            // ── Güvenlik kontrolü 2: Aktif (iptal edilmemiş) kalem olmamalı ──
+            // ActiveQuantity = OrderItemQuantity - CancelledQuantity
+            bool hasActiveItems = order.OrderItems.Any(oi =>
+                oi.OrderItemStatus != "cancelled" &&
+                (oi.OrderItemQuantity - oi.CancelledQuantity) > 0);
+
+            if (hasActiveItems)
+            {
+                TempData["Error"] = "Adisyonda hâlâ aktif ürünler var. Önce tüm ürünleri iptal edin.";
+                return RedirectToAction(nameof(Detail), new { id = orderId });
+            }
+
+            using var tx = await _db.Database.BeginTransactionAsync();
+            try
+            {
+                order.OrderStatus = "cancelled";
+                order.OrderClosedAt = DateTime.UtcNow;
+
+                if (order.Table != null)
+                    order.Table.TableStatus = 0;   // Masa → Boş
+
+                await _db.SaveChangesAsync();
+                await tx.CommitAsync();
+
+                TempData["Success"] = "Sıfır tutarlı adisyon kapatıldı, masa boşaltıldı.";
+                return RedirectToAction("Index", "Tables");
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                TempData["Error"] = "Adisyon kapatılırken bir hata oluştu.";
+                return RedirectToAction(nameof(Detail), new { id = orderId });
+            }
+        }
+
         // ─────────────────────────────────────────────────────────────
         // POST /Orders/CancelItem
         //
