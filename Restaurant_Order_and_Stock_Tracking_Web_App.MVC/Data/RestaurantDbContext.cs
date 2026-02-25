@@ -12,7 +12,6 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<Payment> Payments { get; set; }
 
-        // ── YENİ ────────────────────────────────────────────────────
         public DbSet<StockLog> StockLogs { get; set; }
 
         public RestaurantDbContext(DbContextOptions options) : base(options) { }
@@ -47,8 +46,8 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data
                 entity.Property(m => m.MenuItemPrice).HasPrecision(10, 2).IsRequired();
                 entity.Property(m => m.StockQuantity).HasDefaultValue(0).IsRequired();
 
-                // ── YENİ ────────────────────────────────────────────
                 entity.Property(m => m.AlertThreshold).HasDefaultValue(0).IsRequired();
+                entity.Property(m => m.CriticalThreshold).HasDefaultValue(0).IsRequired();
 
                 entity.Property(m => m.TrackStock).HasDefaultValue(false).IsRequired();
                 entity.Property(m => m.IsAvailable).HasDefaultValue(true).IsRequired();
