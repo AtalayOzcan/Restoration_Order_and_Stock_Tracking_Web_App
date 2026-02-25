@@ -449,5 +449,121 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
             }
             catch { await tx.RollbackAsync(); TempData["Error"] = "Adisyon kapatılırken hata oluştu."; return RedirectToAction(nameof(Detail), new { id = orderId }); }
         }
+        // ─────────────────────────────────────────────────────────────
+        // POST /Orders/CancelItem
+        //
+        // İş kuralları:
+        //   1. İptal miktarı: 1 ≤ cancelQty ≤ (ActiveQuantity - PaidQuantity)
+        //      (Ödenmiş adeti iptal edemeyiz)
+        //   2. CancelledQuantity artar; OrderItemLineTotal güncellenir
+        //   3. Adisyon OrderTotalAmount düşülür
+        //   4. TrackStock=true ve isWasted=false ise stok iade edilir
+        //   5. ActiveQuantity == 0 olunca status="cancelled"
+        // ─────────────────────────────────────────────────────────────
+        [HttpPost, ValidateAntiForgeryToken]
+        public async Task<IActionResult> CancelItem(
+            int orderItemId,
+            int orderId,
+            int cancelQty,
+            string? cancelReason,
+            bool? isWasted)
+        {
+            if (cancelQty < 1)
+            {
+                TempData["Error"] = "İptal miktarı en az 1 olmalıdır.";
+                return RedirectToAction(nameof(Detail), new { id = orderId });
+            }
+
+            var item = await _db.OrderItems
+                .Include(oi => oi.MenuItem)
+                .FirstOrDefaultAsync(oi => oi.OrderItemId == orderItemId);
+
+            var order = await _db.Orders.FindAsync(orderId);
+
+            if (item == null || order == null)
+            {
+                TempData["Error"] = "Kalem veya adisyon bulunamadı.";
+                return RedirectToAction(nameof(Detail), new { id = orderId });
+            }
+
+            if (order.OrderStatus != "open")
+            {
+                TempData["Error"] = "Kapalı adisyonda iptal yapılamaz.";
+                return RedirectToAction(nameof(Detail), new { id = orderId });
+            }
+
+            // Kaç adet iptal edilebilir?
+            // ActiveQuantity = OrderItemQuantity - CancelledQuantity
+            // Ödenmiş adeti iptal edemeyiz
+            int activeQty = item.OrderItemQuantity - item.CancelledQuantity;
+            int cancelable = activeQty - item.PaidQuantity;
+
+            if (cancelQty > cancelable)
+            {
+                TempData["Error"] = $"En fazla {cancelable} adet iptal edilebilir " +
+                                    $"({item.PaidQuantity} adet zaten ödendi).";
+                return RedirectToAction(nameof(Detail), new { id = orderId });
+            }
+
+            using var tx = await _db.Database.BeginTransactionAsync();
+            try
+            {
+                decimal refund = item.OrderItemUnitPrice * cancelQty;
+
+                // ── 1. Kalem güncelle ──────────────────────────────
+                item.CancelledQuantity += cancelQty;
+                item.CancelReason = string.IsNullOrWhiteSpace(cancelReason)
+                                          ? null : cancelReason.Trim();
+                // LineTotal sadece aktif adeti yansıtır
+                item.OrderItemLineTotal = item.OrderItemUnitPrice
+                                         * (item.OrderItemQuantity - item.CancelledQuantity);
+
+                // Tüm aktif adet iptal edildiyse status="cancelled"
+                if (item.OrderItemQuantity - item.CancelledQuantity <= 0)
+                    item.OrderItemStatus = "cancelled";
+
+                // ── 2. Adisyon tutarını düş ────────────────────────
+                order.OrderTotalAmount = Math.Max(0, order.OrderTotalAmount - refund);
+
+                // ── 3. Stok işlemi ─────────────────────────────────
+                bool tracksStock = item.MenuItem != null && item.MenuItem.TrackStock;
+
+                if (tracksStock)
+                {
+                    item.IsWasted = isWasted ?? false;
+
+                    if (isWasted != true)
+                    {
+                        // Kullanılmadı → stoğa iade et
+                        item.MenuItem!.StockQuantity += cancelQty;
+                        if (!item.MenuItem.IsAvailable && item.MenuItem.StockQuantity > 0)
+                            item.MenuItem.IsAvailable = true;
+                    }
+                    // isWasted==true → zayi, stok iade edilmez
+                }
+                else
+                {
+                    item.IsWasted = null; // stok takibi yok
+                }
+
+                await _db.SaveChangesAsync();
+                await tx.CommitAsync();
+
+                string stockNote = tracksStock
+                    ? (isWasted == true ? " | Zayi/Fire olarak işaretlendi."
+                                        : " | Stoka iade edildi.")
+                    : string.Empty;
+
+                TempData["Success"] = $"{cancelQty} adet iptal edildi.{stockNote}";
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                TempData["Error"] = "İptal işlemi sırasında bir hata oluştu.";
+            }
+
+            return RedirectToAction(nameof(Detail), new { id = orderId });
+        }
+
     }
 }

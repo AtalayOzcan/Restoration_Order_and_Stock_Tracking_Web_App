@@ -8,9 +8,14 @@
     var totalPaid = Model.Payments?.Sum(p => p.PaymentsAmount) ?? 0;
     var remaining = Model.OrderTotalAmount - totalPaid;
 
+    // Tamamen iptal edilmemiş (kısmen iptal edilenler dahil) aktif kalemler
     var activeItems = Model.OrderItems.Where(i => i.OrderItemStatus != "cancelled").ToList();
-    var unpaidItems = activeItems.Where(i => i.PaidQuantity < i.OrderItemQuantity).ToList();
-    var paidItems = activeItems.Where(i => i.PaidQuantity >= i.OrderItemQuantity).ToList();
+    // Ödenecek: aktif AND (ödenmemiş adet > 0)
+    var unpaidItems = activeItems.Where(i => i.RemainingQuantity > 0).ToList();
+    // Ödendi: aktif AND tüm aktif adet ödendi
+    var paidItems = activeItems.Where(i => i.RemainingQuantity <= 0 && i.ActiveQuantity > 0).ToList();
+    // İptal edildi: en az 1 adet iptal edilmiş TÜM kalemler (tamamen iptal edilenler dahil)
+    var cancelledItems = Model.OrderItems.Where(i => i.CancelledQuantity > 0).ToList();
     var paidTotal = activeItems.Sum(i => i.PaidLineTotal);
 
     int StatusOrder(string s) => s switch { "preparing" => 1, "served" => 2, "cancelled" => 99, _ => 0 };
@@ -310,6 +315,459 @@
             background: rgba(34,197,94,.12);
             color: #22c55e;
         }
+
+
+        /* ═══════════════════════════════════════════════════════════
+                   İPTAL / İADE — CSS
+                ═══════════════════════════════════════════════════════════ */
+
+        /* İptal butonu (status-flow içinde) */
+        .sflow-btn-cancel {
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1.5px solid rgba(239,68,68,.4);
+            background: rgba(239,68,68,.07);
+            color: #ef4444;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+            transition: all .15s;
+            white-space: nowrap;
+        }
+
+            .sflow-btn-cancel:hover {
+                background: rgba(239,68,68,.18);
+                border-color: #ef4444;
+            }
+
+        /* Kısmi iptal badge (kalemde) */
+        .partial-cancel-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            color: #ef4444;
+            background: rgba(239,68,68,.08);
+            border: 1px solid rgba(239,68,68,.2);
+            border-radius: 6px;
+            padding: 2px 7px;
+            margin-top: 4px;
+        }
+
+        /* ── İptal Edilen Ürünler Paneli ── */
+        .cancel-panel {
+            background: var(--surface);
+            border: 1.5px solid rgba(239,68,68,.25);
+            border-radius: 14px;
+            overflow: hidden;
+            margin-top: 0;
+        }
+
+        .cancel-panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: rgba(239,68,68,.06);
+            border-bottom: 1px solid rgba(239,68,68,.15);
+        }
+
+        .cancel-panel-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 13px;
+            font-weight: 800;
+            color: #ef4444;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .cancel-panel-count {
+            font-size: 11px;
+            font-weight: 700;
+            color: rgba(239,68,68,.7);
+            background: rgba(239,68,68,.1);
+            border-radius: 10px;
+            padding: 2px 8px;
+        }
+
+        .cancel-item-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 11px 16px;
+            border-bottom: 1px solid var(--border);
+            transition: background .1s;
+        }
+
+            .cancel-item-row:last-child {
+                border-bottom: none;
+            }
+
+            .cancel-item-row:hover {
+                background: rgba(239,68,68,.03);
+            }
+
+        .cancel-item-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: rgba(239,68,68,.1);
+            color: #ef4444;
+            display: grid;
+            place-items: center;
+            font-size: 13px;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .cancel-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .cancel-item-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            text-decoration: line-through;
+            opacity: .75;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .cancel-item-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 5px;
+        }
+
+        .cancel-meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 8px;
+            white-space: nowrap;
+        }
+
+        .chip-qty {
+            background: rgba(239,68,68,.1);
+            color: #ef4444;
+            border: 1px solid rgba(239,68,68,.2);
+        }
+
+        .chip-wasted {
+            background: rgba(239,68,68,.1);
+            color: #ef4444;
+            border: 1px solid rgba(239,68,68,.2);
+        }
+
+        .chip-returned {
+            background: rgba(34,197,94,.1);
+            color: #22c55e;
+            border: 1px solid rgba(34,197,94,.2);
+        }
+
+        .chip-nostock {
+            background: var(--surface2);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+
+        .cancel-item-reason {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        .cancel-item-price {
+            font-family: 'Syne', sans-serif;
+            font-size: 13px;
+            font-weight: 800;
+            color: #ef4444;
+            white-space: nowrap;
+            flex-shrink: 0;
+            opacity: .75;
+            text-decoration: line-through;
+        }
+
+        /* ── İptal Modalı ── */
+        .cim-wrap {
+            background: var(--surface);
+            border-radius: 18px;
+            width: min(460px, 95vw);
+            padding: 28px 26px 22px;
+            box-shadow: 0 24px 64px rgba(0,0,0,.55);
+            animation: modalIn .2s ease;
+            position: relative;
+        }
+
+        .cim-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+
+        .cim-header-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: rgba(239,68,68,.12);
+            color: #ef4444;
+            display: grid;
+            place-items: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .cim-header-text {
+        }
+
+        .cim-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 17px;
+            font-weight: 800;
+            margin-bottom: 3px;
+        }
+
+        .cim-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .cim-close {
+            position: absolute;
+            top: 14px;
+            right: 16px;
+            width: 26px;
+            height: 26px;
+            border: none;
+            background: var(--surface2);
+            color: var(--text-muted);
+            font-size: 17px;
+            border-radius: 7px;
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            transition: all .12s;
+        }
+
+            .cim-close:hover {
+                background: rgba(239,68,68,.15);
+                color: #ef4444;
+            }
+
+        .cim-field {
+            margin-bottom: 18px;
+        }
+
+        .cim-label {
+            font-size: 10px;
+            font-weight: 800;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: .07em;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        /* Adet kontrolü */
+        .cim-qty-ctrl {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .cim-qbtn {
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
+            border: 1.5px solid var(--border);
+            background: var(--surface2);
+            color: var(--text);
+            font-size: 20px;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            transition: all .15s;
+            font-family: monospace;
+        }
+
+            .cim-qbtn:hover {
+                border-color: #ef4444;
+                color: #ef4444;
+                background: rgba(239,68,68,.1);
+            }
+
+        .cim-qty-num {
+            font-family: 'Syne', sans-serif;
+            font-size: 28px;
+            font-weight: 900;
+            min-width: 46px;
+            text-align: center;
+        }
+
+        .cim-qty-max {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-left: 4px;
+        }
+
+        .cim-refund-preview {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: rgba(239,68,68,.06);
+            border: 1px solid rgba(239,68,68,.15);
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+
+        .cim-refund-lbl {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .cim-refund-amt {
+            font-family: 'Syne', sans-serif;
+            font-size: 16px;
+            font-weight: 800;
+            color: #ef4444;
+        }
+
+        /* Sebep */
+        .cim-reason-input {
+            width: 100%;
+            background: var(--surface2);
+            border: 1.5px solid var(--border);
+            border-radius: 9px;
+            padding: 10px 13px;
+            color: var(--text);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 13px;
+            outline: none;
+            transition: border-color .15s;
+        }
+
+            .cim-reason-input:focus {
+                border-color: #ef4444;
+            }
+
+            .cim-reason-input::placeholder {
+                color: var(--text-muted);
+                font-size: 12px;
+            }
+
+        /* Fire radio grubu */
+        .cim-waste-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .cim-waste-opt {
+            flex: 1;
+            cursor: pointer;
+        }
+
+            .cim-waste-opt input[type="radio"] {
+                display: none;
+            }
+
+        .cim-waste-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            padding: 12px 8px;
+            border-radius: 11px;
+            border: 2px solid var(--border);
+            background: var(--surface2);
+            transition: all .15s;
+            text-align: center;
+        }
+
+        .cim-waste-icon {
+            font-size: 20px;
+        }
+
+        .cim-waste-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        .cim-waste-desc {
+            font-size: 10px;
+            color: var(--text-muted);
+            opacity: .7;
+            line-height: 1.3;
+        }
+
+        .cim-waste-opt input:checked + .cim-waste-card {
+            border-color: #ef4444;
+            background: rgba(239,68,68,.07);
+        }
+
+        .cim-waste-opt:has(input[value="false"]) input:checked + .cim-waste-card {
+            border-color: #22c55e;
+            background: rgba(34,197,94,.07);
+        }
+
+        /* Butonlar */
+        .cim-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 22px;
+        }
+
+        .cim-btn-cancel-op {
+            flex: 1;
+            padding: 12px;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            background: var(--surface2);
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+            transition: all .15s;
+        }
+
+            .cim-btn-cancel-op:hover {
+                color: var(--text);
+                border-color: var(--text-muted);
+            }
+
+        .cim-btn-confirm {
+            flex: 2;
+            padding: 12px;
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 800;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+            transition: background .15s, transform .12s;
+        }
+
+            .cim-btn-confirm:hover {
+                background: #dc2626;
+                transform: translateY(-1px);
+            }
 
         /* ── ÜRÜN EKLE PANEL ── */
         .add-panel-body {
@@ -660,8 +1118,8 @@
             }
 
         /* ═══════════════════════════════════════════════
-                    ✅ #2 — Yeni Ürün Ekle Modalı (AIM)
-                ═══════════════════════════════════════════════ */
+                            ✅ #2 — Yeni Ürün Ekle Modalı (AIM)
+                        ═══════════════════════════════════════════════ */
         .aim-overlay-inner {
             display: flex;
             width: min(820px, 96vw);
@@ -1594,6 +2052,12 @@
                         {
                             <div style="font-size:10px;color:#22c55e;margin-top:3px">✓ @item.PaidQuantity adet ödendi</div>
                         }
+                        @if (item.CancelledQuantity > 0)
+                        {
+                            <div class="partial-cancel-badge">
+                                ✕ @item.CancelledQuantity adet iptal edildi
+                            </div>
+                        }
                     </div>
                     @* Ödenecek adet göster *@
                     <div class="item-qty remaining">×@item.RemainingQuantity</div>
@@ -1633,6 +2097,23 @@
                                     <input type="hidden" name="orderId" value="@Model.OrderId" />
                                     <button type="submit" class="sflow-btn sflow-btn-serve">Servis Et ✓</button>
                                 </form>
+                            }
+                            @* ── İptal Et butonu — tüm aktif kalemler için ── *@
+                            @{
+                                int cancelable = item.RemainingQuantity;
+                            }
+                            @if (cancelable > 0)
+                            {
+                                <button type="button" class="sflow-btn sflow-btn-cancel"
+                                        onclick="openCancelModal(
+                                                        @item.OrderItemId,
+                                                        '@Html.Raw(item.MenuItem?.MenuItemName?.Replace("'", "&#39;") ?? "")',
+                                                        @item.OrderItemUnitPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture),
+                                                        @cancelable,
+                                                        @(item.MenuItem?.TrackStock == true ? "true" : "false")
+                                                    )">
+                                    ✕ İptal
+                                </button>
                             }
                         </div>
                     }
@@ -1677,7 +2158,62 @@
                 </div>
             }
         </div>
-    </div> @* *@
+
+        @* ── İptal Edilen Ürünler ── *@
+        @if (cancelledItems.Any())
+        {
+            <div class="cancel-panel">
+                <div class="cancel-panel-head">
+                    <div class="cancel-panel-title">
+                        ✕ İptal Edilen Ürünler
+                    </div>
+                    <span class="cancel-panel-count">@cancelledItems.Count kalem</span>
+                </div>
+
+                @foreach (var item in cancelledItems)
+                {
+                    bool fullyC = item.OrderItemStatus == "cancelled";
+                    <div class="cancel-item-row">
+                        <div class="cancel-item-icon">✕</div>
+                        <div class="cancel-item-info">
+                            <div class="cancel-item-name">@item.MenuItem?.MenuItemName</div>
+                            <div class="cancel-item-meta">
+                                <span class="cancel-meta-chip chip-qty">
+                                    @item.CancelledQuantity / @item.OrderItemQuantity iptal
+                                </span>
+                                @if (item.MenuItem?.TrackStock == true)
+                                {
+                                    @if (item.IsWasted == true)
+                                    {
+                                        <span class="cancel-meta-chip chip-wasted">🔥 Zayi / Fire</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="cancel-meta-chip chip-returned">↩ Stoka İade</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="cancel-meta-chip chip-nostock">Stok takibi yok</span>
+                                }
+                                @if (!fullyC)
+                                {
+                                    <span class="cancel-meta-chip" style="background:rgba(249,115,22,.1);color:var(--accent);border:1px solid rgba(249,115,22,.2)">
+                                        Kısmen aktif
+                                    </span>
+                                }
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(item.CancelReason))
+                            {
+                                <div class="cancel-item-reason">💬 @item.CancelReason</div>
+                            }
+                        </div>
+                        <div class="cancel-item-price">−₺@item.CancelledLineTotal.ToString("N2")</div>
+                    </div>
+                }
+            </div>
+        }
+    </div> @* sol panel kapanış *@
 
     @* ── SAĞ PANEL ── *@
     <div class="pay-panel">
@@ -1831,6 +2367,86 @@
             </div>
         </div>
 
+    </div>
+</div>
+
+@* ── İPTAL MODAL ── *@
+<div class="modal-overlay" id="cancelItemModal">
+    <div class="cim-wrap">
+        <button type="button" class="cim-close" onclick="closeModal('cancelItemModal')">×</button>
+
+        <div class="cim-header">
+            <div class="cim-header-icon">✕</div>
+            <div class="cim-header-text">
+                <div class="cim-title">Ürünü İptal Et / İade Al</div>
+                <div class="cim-sub" id="cimProductName">—</div>
+            </div>
+        </div>
+
+        <form asp-controller="Orders" asp-action="CancelItem" method="post" id="cimForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="orderId" value="@Model.OrderId" />
+            <input type="hidden" name="orderItemId" id="cimItemId" />
+            <input type="hidden" name="cancelQty" id="cimQtyHidden" value="1" />
+            <input type="hidden" name="isWasted" id="cimIsWastedHidden" value="false" />
+
+            @* Adet *@
+            <div class="cim-field">
+                <label class="cim-label">İptal Edilecek Adet</label>
+                <div class="cim-qty-ctrl">
+                    <button type="button" class="cim-qbtn" onclick="cimDelta(-1)">−</button>
+                    <span class="cim-qty-num" id="cimQtyNum">1</span>
+                    <button type="button" class="cim-qbtn" onclick="cimDelta(+1)">+</button>
+                    <span class="cim-qty-max" id="cimQtyMax"></span>
+                </div>
+                <div class="cim-refund-preview">
+                    <span class="cim-refund-lbl">İade edilecek tutar</span>
+                    <span class="cim-refund-amt" id="cimRefundAmt">₺0,00</span>
+                </div>
+            </div>
+
+            @* Sebep *@
+            <div class="cim-field">
+                <label class="cim-label">İptal Sebebi (opsiyonel)</label>
+                <input class="cim-reason-input" type="text" name="cancelReason" id="cimReason"
+                       placeholder="Müşteri vazgeçti, yanlış girildi..." maxlength="300" />
+            </div>
+
+            @* Fire sorusu — sadece stok takibi aktifse gösterilir *@
+            <div class="cim-field" id="cimWasteField" style="display:none">
+                <label class="cim-label">Ürün Ne Oldu?</label>
+                <div class="cim-waste-group">
+                    <label class="cim-waste-opt">
+                        <input type="radio" name="_wasteChoice" value="true"
+                               onchange="cimWasteChange(true)" />
+                        <div class="cim-waste-card">
+                            <span class="cim-waste-icon">🔥</span>
+                            <span class="cim-waste-label">Kullanıldı / Zayi</span>
+                            <span class="cim-waste-desc">Yenildi, döküldü ya da<br>kullanılamaz hâle geldi</span>
+                        </div>
+                    </label>
+                    <label class="cim-waste-opt">
+                        <input type="radio" name="_wasteChoice" value="false"
+                               onchange="cimWasteChange(false)" checked />
+                        <div class="cim-waste-card">
+                            <span class="cim-waste-icon">↩</span>
+                            <span class="cim-waste-label">Kullanılmadı / İade</span>
+                            <span class="cim-waste-desc">Açılmadı, dokunulmadı,<br>stoka geri dönüyor</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="cim-actions">
+                <button type="button" class="cim-btn-cancel-op"
+                        onclick="closeModal('cancelItemModal')">
+                    Vazgeç
+                </button>
+                <button type="submit" class="cim-btn-confirm" id="cimConfirmBtn">
+                    ✕ İptal Et
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -2172,6 +2788,57 @@
                 }
             });
             return true;
+        }
+
+
+        // ═══════════════════════════════════════════════════════════
+        // İPTAL MODAL — JS
+        // ═══════════════════════════════════════════════════════════
+        let cimMaxQty   = 1;
+        let cimUnitPrice = 0;
+        let cimQty       = 1;
+        let cimTracksStock = false;
+
+        function openCancelModal(itemId, name, unitPrice, maxQty, tracksStock) {
+            cimMaxQty      = maxQty;
+            cimUnitPrice   = unitPrice;
+            cimTracksStock = tracksStock;
+            cimQty         = 1;
+
+            document.getElementById('cimItemId').value     = itemId;
+            document.getElementById('cimProductName').textContent = name;
+            document.getElementById('cimQtyHidden').value  = 1;
+            document.getElementById('cimReason').value     = '';
+            document.getElementById('cimQtyMax').textContent = '(maks. ' + maxQty + ')';
+
+            // Fire sorusu: sadece stok takibi varsa göster
+            document.getElementById('cimWasteField').style.display = tracksStock ? '' : 'none';
+
+            // İsWasted: stok takibi varsa default "false" (iade), yoksa "false" (kullanılmaz)
+            document.getElementById('cimIsWastedHidden').value = 'false';
+            // Radio sıfırla
+            document.querySelectorAll('#cancelItemModal input[type="radio"]')
+                .forEach(r => r.checked = r.value === 'false');
+
+            cimRefresh();
+            openModal('cancelItemModal');
+        }
+
+        function cimDelta(d) {
+            cimQty = Math.max(1, Math.min(cimMaxQty, cimQty + d));
+            cimRefresh();
+        }
+
+        function cimRefresh() {
+            document.getElementById('cimQtyNum').textContent    = cimQty;
+            document.getElementById('cimQtyHidden').value       = cimQty;
+            document.getElementById('cimRefundAmt').textContent = fmt(cimUnitPrice * cimQty);
+            document.getElementById('cimConfirmBtn').textContent =
+                '✕ ' + cimQty + ' Adet İptal Et (−' + fmt(cimUnitPrice * cimQty) + ')';
+        }
+
+        function cimWasteChange(isWasted) {
+            document.getElementById('cimIsWastedHidden').value = isWasted ? 'true' : 'false';
         }
 
         setTimeout(() => {

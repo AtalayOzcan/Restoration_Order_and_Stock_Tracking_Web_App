@@ -86,10 +86,23 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data
                     .HasMaxLength(20).HasDefaultValue("pending").IsRequired();
                 entity.Property(o => o.OrderItemAddedAt).HasDefaultValueSql("NOW()").IsRequired();
 
+                // ── YENİ: İptal alanları ──────────────────────────────
+                entity.Property(o => o.CancelledQuantity)
+                    .IsRequired()
+                    .HasDefaultValue(0);
+
+                entity.Property(o => o.CancelReason)
+                    .HasColumnType("text");
+
+                entity.Property(o => o.IsWasted)
+                    .IsRequired(false);
+
                 // Hesaplanan property'ler DB'ye eşlenmez
+                entity.Ignore(o => o.ActiveQuantity);
                 entity.Ignore(o => o.RemainingQuantity);
                 entity.Ignore(o => o.UnpaidLineTotal);
                 entity.Ignore(o => o.PaidLineTotal);
+                entity.Ignore(o => o.CancelledLineTotal);
 
                 entity.HasOne(o => o.Order)
                     .WithMany(o => o.OrderItems)
