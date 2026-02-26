@@ -1,0 +1,531 @@
+﻿@model Restaurant_Order_and_Stock_Tracking_Web_App.MVC.ViewModels.Reports.SalesReportViewModel
+@{
+    ViewData["Title"] = "Satış Raporu";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var f = Model.Filter;
+}
+
+@section Styles {
+    <style>
+        .rpt-page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 22px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+            .rpt-page-header h1 {
+                font-family: 'Syne',sans-serif;
+                font-size: 22px;
+                font-weight: 700;
+            }
+
+            .rpt-page-header .sub {
+                font-size: 12px;
+                color: var(--text-muted);
+                margin-top: 3px;
+            }
+
+        /* ── Filter bar ── */
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+        }
+
+        .preset-btn {
+            padding: 6px 14px;
+            border-radius: 7px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all .15s;
+        }
+
+            .preset-btn:hover {
+                background: var(--surface2);
+                color: var(--text);
+            }
+
+            .preset-btn.active {
+                background: var(--accent);
+                color: #fff;
+                border-color: var(--accent);
+            }
+
+        .filter-sep {
+            width: 1px;
+            height: 20px;
+            background: var(--border);
+            margin: 0 4px;
+        }
+
+        .filter-date {
+            padding: 6px 10px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text);
+            font-size: 13px;
+        }
+
+            .filter-date:focus {
+                outline: none;
+                border-color: var(--accent);
+            }
+
+        .filter-check {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--text-muted);
+            cursor: pointer;
+            margin-left: auto;
+        }
+
+        .export-btns {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-export {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 7px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: opacity .2s;
+        }
+
+        .btn-csv {
+            background: rgba(16,185,129,.1);
+            color: #10b981;
+            border: 1px solid rgba(16,185,129,.25);
+        }
+
+        .btn-pdf {
+            background: rgba(239,68,68,.1);
+            color: #ef4444;
+            border: 1px solid rgba(239,68,68,.25);
+        }
+
+            .btn-csv:hover, .btn-pdf:hover {
+                opacity: .8;
+            }
+
+        /* ── Summary cards ── */
+        .sum-grid {
+            display: grid;
+            grid-template-columns: repeat(4,1fr);
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        @@media(max-width:900px) {
+            .sum-grid {
+                grid-template-columns: repeat(2,1fr);
+            }
+        }
+
+        @@media(max-width:500px) {
+            .sum-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .sum-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+        }
+
+            .sum-card .sum-val {
+                font-size: 22px;
+                font-weight: 800;
+                color: var(--text);
+                margin-bottom: 4px;
+            }
+
+            .sum-card .sum-label {
+                font-size: 12px;
+                color: var(--text-muted);
+            }
+
+        /* ── Chart grid ── */
+        .chart-row {
+            display: grid;
+            grid-template-columns: 3fr 2fr;
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+
+        .chart-row2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        @@media(max-width:900px) {
+            .chart-row, .chart-row2 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+        }
+
+        .chart-card-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 14px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 250px;
+        }
+
+            .chart-container.tall {
+                height: 300px;
+            }
+
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--surface);
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+    </style>
+}
+
+<div class="rpt-page-header">
+    <div>
+        <h1>💰 Satış Raporu</h1>
+        <div class="sub">@f.DisplayRange</div>
+    </div>
+    <div class="export-btns">
+        <button class="btn-export btn-csv" id="btnCsv">📥 CSV İndir</button>
+        <button class="btn-export btn-pdf" id="btnPdf">📄 PDF İndir</button>
+    </div>
+</div>
+
+<!-- ── Filtre Bar ── -->
+<div class="filter-bar">
+    <button class="preset-btn @(f.Preset == "today" ? "active" : "")" data-preset="today">Bugün</button>
+    <button class="preset-btn @(f.Preset == "week" ? "active" : "")" data-preset="week">Son 7 Gün</button>
+    <button class="preset-btn @(f.Preset == "month" ? "active" : "")" data-preset="month">Son 30 Gün</button>
+    <button class="preset-btn @(f.Preset == "custom" ? "active" : "")" data-preset="custom">Özel</button>
+    <div class="filter-sep"></div>
+    <input type="date" id="dateFrom" class="filter-date" value="@f.From.ToString("yyyy-MM-dd")" style="display:@(f.Preset == "custom" ? "" : "none")" />
+    <input type="date" id="dateTo" class="filter-date" value="@f.To.AddDays(-1).ToString("yyyy-MM-dd")" style="display:@(f.Preset == "custom" ? "" : "none")" />
+    <label class="filter-check">
+        <input type="checkbox" id="chkCancelled" @(f.IncludeCancelled ? "checked" : "") />
+        İptal Adisyonları Dahil Et
+    </label>
+</div>
+
+<!-- ── Özet Kartlar ── -->
+<div class="sum-grid" id="summaryCards">
+    <div class="sum-card">
+        <div class="sum-val" id="sv-gross">₺@Model.GrossSales.ToString("N2")</div>
+        <div class="sum-label">Brüt Ciro</div>
+    </div>
+    <div class="sum-card">
+        <div class="sum-val" id="sv-net">₺@Model.NetCollected.ToString("N2")</div>
+        <div class="sum-label">Tahsil Edilen</div>
+    </div>
+    <div class="sum-card">
+        <div class="sum-val" id="sv-diff">₺@((Model.GrossSales - Model.NetCollected).ToString("N2"))</div>
+        <div class="sum-label">Fark</div>
+    </div>
+    <div class="sum-card">
+        <div class="sum-val" id="sv-count">@Model.TotalOrderCount</div>
+        <div class="sum-label">Adisyon Sayısı</div>
+    </div>
+</div>
+
+<!-- ── Chart Satırı 1: Trend + Ödeme Dağılımı ── -->
+<div class="chart-row">
+    <div class="chart-card">
+        <div class="chart-card-title">📈 Ciro Trendi (Brüt vs Tahsilat)</div>
+        <div class="chart-container" style="position:relative">
+            <canvas id="trendChart"></canvas>
+            <div class="loading-overlay" id="trendLoading">Yükleniyor…</div>
+        </div>
+    </div>
+    <div class="chart-card">
+        <div class="chart-card-title">💳 Ödeme Yöntemi Dağılımı</div>
+        <div class="chart-container">
+            <canvas id="paymentChart"></canvas>
+            <div class="loading-overlay" id="paymentLoading">Yükleniyor…</div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Chart Satırı 2: Top Ürünler + Kategori ── -->
+<div class="chart-row2">
+    <div class="chart-card">
+        <div class="chart-card-title">🏆 En Çok Satan 10 Ürün</div>
+        <div class="chart-container tall">
+            <canvas id="productsChart"></canvas>
+            <div class="loading-overlay" id="productsLoading">Yükleniyor…</div>
+        </div>
+    </div>
+    <div class="chart-card">
+        <div class="chart-card-title">🗂️ Kategori Bazlı Ciro</div>
+        <div class="chart-container tall">
+            <canvas id="categoryChart"></canvas>
+            <div class="loading-overlay" id="categoryLoading">Yükleniyor…</div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // ── Yardımcılar ──────────────────────────────────────────────────────────────
+        function isDark()      { return document.documentElement.dataset.theme !== 'light'; }
+        function gridColor()   { return isDark() ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)'; }
+        function textColor()   { return isDark() ? '#687080' : '#8A95A3'; }
+
+        let charts = {};
+
+        function destroyChart(id) {
+            if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+        }
+
+        // ── Filtre durumu ────────────────────────────────────────────────────────────
+        let state = {
+            preset:    '@f.Preset',
+            from:      '@f.From.ToString("yyyy-MM-dd")',
+            to:        '@f.To.AddDays(-1).ToString("yyyy-MM-dd")',
+            cancelled: @(f.IncludeCancelled ? "true" : "false")
+        };
+
+        function buildQs() {
+            const q = new URLSearchParams({ preset: state.preset, includeCancelled: state.cancelled });
+            if (state.preset === 'custom') { q.set('from', state.from); q.set('to', state.to); }
+            return q.toString();
+        }
+
+        function applyFilter() {
+            history.replaceState(null, '', `/Reports/Sales?${buildQs()}`);
+            loadAllCharts();
+        }
+
+        // ── Preset butonları ─────────────────────────────────────────────────────────
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.preset = btn.dataset.preset;
+                const isCustom = state.preset === 'custom';
+                document.getElementById('dateFrom').style.display = isCustom ? '' : 'none';
+                document.getElementById('dateTo').style.display   = isCustom ? '' : 'none';
+                if (!isCustom) applyFilter();
+            });
+        });
+
+        document.getElementById('dateFrom').addEventListener('change', e => { state.from = e.target.value; applyFilter(); });
+        document.getElementById('dateTo'  ).addEventListener('change', e => { state.to   = e.target.value; applyFilter(); });
+        document.getElementById('chkCancelled').addEventListener('change', e => { state.cancelled = e.target.checked; applyFilter(); });
+
+        // ── Grafikleri yükle ─────────────────────────────────────────────────────────
+        async function loadAllCharts() {
+            await Promise.all([loadTrend(), loadPayment(), loadProducts(), loadCategory()]);
+        }
+
+        async function loadTrend() {
+            document.getElementById('trendLoading').style.display = 'flex';
+            const res  = await fetch(`/Reports/GetSalesChartData?${buildQs()}`);
+            const data = await res.json();
+            document.getElementById('trendLoading').style.display = 'none';
+
+            destroyChart('trend');
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            charts['trend'] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        {
+                            label: 'Brüt Ciro',
+                            data: data.grossData,
+                            borderColor: '#F97316',
+                            backgroundColor: '#F97316',
+                            borderWidth: 2.5,
+                            tension: .35,
+                            fill: false,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#F97316'
+                        },
+                        {
+                            label: 'Tahsilat',
+                            data: data.netData,
+                            borderColor: '#10b981',
+                            backgroundColor: '#10b981',
+                            borderWidth: 2.5,
+                            borderDash: [6, 3],
+                            tension: .35,
+                            fill: false,
+                            pointRadius: 4,
+                            pointStyle: 'rect',
+                            pointBackgroundColor: '#10b981'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: textColor() } }
+                    },
+                    scales: {
+                        x: { grid: { color: gridColor() }, ticks: { color: textColor(), maxRotation: 45 } },
+                        y: { grid: { color: gridColor() }, ticks: { color: textColor(), callback: v => `₺${v}` } }
+                    }
+                }
+            });
+        }
+
+        async function loadPayment() {
+            document.getElementById('paymentLoading').style.display = 'flex';
+            const res  = await fetch(`/Reports/GetPaymentChartData?${buildQs()}`);
+            const data = await res.json();
+            document.getElementById('paymentLoading').style.display = 'none';
+
+            destroyChart('payment');
+            const ctx = document.getElementById('paymentChart').getContext('2d');
+            charts['payment'] = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        data: data.amounts,
+                        backgroundColor: ['#F97316','#3b82f6','#10b981','#8b5cf6'],
+                        borderWidth: 2,
+                        borderColor: isDark() ? '#161A20' : '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: textColor() } },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `₺${ctx.parsed.toLocaleString('tr-TR', {minimumFractionDigits:2})} (%${data.percentages[ctx.dataIndex]})`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadProducts() {
+            document.getElementById('productsLoading').style.display = 'flex';
+            const res  = await fetch(`/Reports/GetTopProductsData?${buildQs()}&top=10`);
+            const data = await res.json();
+            document.getElementById('productsLoading').style.display = 'none';
+
+            destroyChart('products');
+            const ctx = document.getElementById('productsChart').getContext('2d');
+            charts['products'] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Adet',
+                        data: data.quantities,
+                        backgroundColor: 'rgba(249,115,22,.75)',
+                        borderColor: '#F97316',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: gridColor() }, ticks: { color: textColor() } },
+                        y: { grid: { display: false }, ticks: { color: textColor() } }
+                    }
+                }
+            });
+        }
+
+        async function loadCategory() {
+            document.getElementById('categoryLoading').style.display = 'flex';
+            const res  = await fetch(`/Reports/GetCategorySalesData?${buildQs()}`);
+            const data = await res.json();
+            document.getElementById('categoryLoading').style.display = 'none';
+
+            destroyChart('category');
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            charts['category'] = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        data: data.amounts,
+                        backgroundColor: ['#F97316','#3b82f6','#10b981','#8b5cf6','#f59e0b','#ef4444'],
+                        borderWidth: 2,
+                        borderColor: isDark() ? '#161A20' : '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: textColor() } },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `₺${ctx.parsed.toLocaleString('tr-TR', {minimumFractionDigits:2})} (%${data.percentages[ctx.dataIndex]})`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ── Export butonları ─────────────────────────────────────────────────────────
+        document.getElementById('btnCsv').addEventListener('click', () => {
+            window.location = `/Reports/ExportCsv?type=sales&${buildQs()}`;
+        });
+        document.getElementById('btnPdf').addEventListener('click', () => {
+            window.location = `/Reports/ExportPdf?type=sales&${buildQs()}`;
+        });
+
+        // ── İlk yükleme ──────────────────────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', loadAllCharts);
+    </script>
+}

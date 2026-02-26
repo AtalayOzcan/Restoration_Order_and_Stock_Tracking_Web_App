@@ -48,6 +48,7 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data
 
                 entity.Property(m => m.AlertThreshold).HasDefaultValue(0).IsRequired();
                 entity.Property(m => m.CriticalThreshold).HasDefaultValue(0).IsRequired();
+                entity.Property(m => m.CostPrice).HasPrecision(10, 2);  // nullable, no default
 
                 entity.Property(m => m.TrackStock).HasDefaultValue(false).IsRequired();
                 entity.Property(m => m.IsAvailable).HasDefaultValue(true).IsRequired();

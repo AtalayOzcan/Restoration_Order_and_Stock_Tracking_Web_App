@@ -1,0 +1,487 @@
+﻿@model Restaurant_Order_and_Stock_Tracking_Web_App.MVC.ViewModels.Reports.StockReportViewModel
+@{
+    ViewData["Title"] = "Stok Tüketim Raporu";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var f = Model.Filter;
+}
+
+@section Styles {
+    <style>
+        .rpt-page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 22px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+            .rpt-page-header h1 {
+                font-family: 'Syne',sans-serif;
+                font-size: 22px;
+                font-weight: 700;
+            }
+
+            .rpt-page-header .sub {
+                font-size: 12px;
+                color: var(--text-muted);
+                margin-top: 3px;
+            }
+
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+        }
+
+        .preset-btn {
+            padding: 6px 14px;
+            border-radius: 7px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all .15s;
+        }
+
+            .preset-btn:hover {
+                background: var(--surface2);
+                color: var(--text);
+            }
+
+            .preset-btn.active {
+                background: var(--accent);
+                color: #fff;
+                border-color: var(--accent);
+            }
+
+        .filter-sep {
+            width: 1px;
+            height: 20px;
+            background: var(--border);
+            margin: 0 4px;
+        }
+
+        .filter-date {
+            padding: 6px 10px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text);
+            font-size: 13px;
+        }
+
+        .filter-sel {
+            padding: 6px 10px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            font-size: 13px;
+        }
+
+        .timebase-toggle {
+            display: inline-flex;
+            background: var(--surface2);
+            border-radius: 8px;
+            padding: 3px;
+            gap: 3px;
+        }
+
+        .timebase-btn {
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all .15s;
+        }
+
+            .timebase-btn.active {
+                background: var(--accent);
+                color: #fff;
+            }
+
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            margin-left: auto;
+            align-items: center;
+        }
+
+        .btn-csv {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 7px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            background: rgba(16,185,129,.1);
+            color: #10b981;
+            border: 1px solid rgba(16,185,129,.25);
+            cursor: pointer;
+            transition: opacity .2s;
+        }
+
+            .btn-csv:hover {
+                opacity: .8;
+            }
+
+        /* ── Tablo ── */
+        .stock-table-wrap {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+            .data-table th {
+                padding: 10px 14px;
+                color: var(--text-muted);
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: .05em;
+                border-bottom: 1px solid var(--border);
+                background: var(--surface2);
+                text-align: left;
+                white-space: nowrap;
+            }
+
+            .data-table td {
+                padding: 10px 14px;
+                border-bottom: 1px solid var(--border);
+                color: var(--text);
+            }
+
+            .data-table tr:last-child td {
+                border-bottom: none;
+            }
+
+            .data-table tr.clickable:hover td {
+                background: var(--surface2);
+                cursor: pointer;
+            }
+
+        .pill-red {
+            display: inline-block;
+            background: rgba(239,68,68,.12);
+            color: #ef4444;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+
+        .pill-amber {
+            display: inline-block;
+            background: rgba(245,158,11,.12);
+            color: #f59e0b;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+
+        .pill-green {
+            display: inline-block;
+            background: rgba(16,185,129,.12);
+            color: #10b981;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+
+        .pill-gray {
+            display: inline-block;
+            background: rgba(107,114,128,.12);
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+
+        /* ── Trend Modal ── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.65);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .25s;
+            z-index: 1000;
+        }
+
+            .modal-overlay.open {
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+        .modal {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            width: 640px;
+            max-width: 95vw;
+            padding: 24px;
+            transform: translateY(16px);
+            transition: transform .25s;
+            box-shadow: 0 20px 60px rgba(0,0,0,.4);
+        }
+
+        .modal-overlay.open .modal {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .modal-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+            .modal-close:hover {
+                color: #ef4444;
+            }
+
+        .chart-container {
+            position: relative;
+            height: 260px;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+    </style>
+}
+
+<div class="rpt-page-header">
+    <div>
+        <h1>📦 Stok Tüketim Raporu</h1>
+        <div class="sub">@f.DisplayRange</div>
+    </div>
+</div>
+
+<div class="filter-bar">
+    <button class="preset-btn @(f.Preset == "today" ? "active" : "")" data-preset="today">Bugün</button>
+    <button class="preset-btn @(f.Preset == "week" ? "active" : "")" data-preset="week">Son 7 Gün</button>
+    <button class="preset-btn @(f.Preset == "month" ? "active" : "")" data-preset="month">Son 30 Gün</button>
+    <button class="preset-btn @(f.Preset == "custom" ? "active" : "")" data-preset="custom">Özel</button>
+    <div class="filter-sep"></div>
+    <input type="date" id="dateFrom" class="filter-date" value="@f.From.ToString("yyyy-MM-dd")" style="display:@(f.Preset == "custom" ? "" : "none")" />
+    <input type="date" id="dateTo" class="filter-date" value="@f.To.AddDays(-1).ToString("yyyy-MM-dd")" style="display:@(f.Preset == "custom" ? "" : "none")" />
+    <div class="filter-sep"></div>
+    <span style="font-size:12px; color:var(--text-muted);">Zaman Bazı:</span>
+    <div class="timebase-toggle">
+        <button class="timebase-btn @(f.TimeBase == "orderitem" ? "active" : "")" data-tb="orderitem">Sipariş</button>
+        <button class="timebase-btn @(f.TimeBase == "stocklog" ? "active" : "")" data-tb="stocklog">Stok Hareketi</button>
+    </div>
+    <div class="filter-sep"></div>
+    <select id="catFilter" class="filter-sel">
+        <option value="">Tüm Kategoriler</option>
+        @foreach (var cat in Model.Categories)
+        {
+            <option value="@cat">@cat</option>
+        }
+    </select>
+    <div class="toolbar">
+        <button class="btn-csv" id="btnCsv">📥 CSV İndir</button>
+    </div>
+</div>
+
+<!-- ── Tablo ── -->
+<div class="stock-table-wrap">
+    <table class="data-table" id="stockTable">
+        <thead>
+            <tr>
+                <th>Ürün</th>
+                <th>Kategori</th>
+                <th>Güncel Stok</th>
+                <th>Dönem Tüketimi</th>
+                <th>Günlük Ort.</th>
+                <th>Tahmini Tükenme</th>
+                <th>Maliyet</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in Model.Products)
+            {
+                string daysClass = p.EstimatedDaysLeft <= 3 ? "pill-red" :
+                p.EstimatedDaysLeft <= 7 ? "pill-amber" :
+                p.EstimatedDaysLeft == 999 ? "pill-gray" : "pill-green";
+                string daysLabel = p.EstimatedDaysLeft == 999 ? "∞" : $"{p.EstimatedDaysLeft} gün";
+
+                <tr class="clickable" data-id="@p.MenuItemId" data-name="@p.ProductName" onclick="openTrendModal(this)">
+                    <td><strong>@p.ProductName</strong></td>
+                    <td style="color:var(--text-muted);">@p.CategoryName</td>
+                    <td>@p.CurrentStock</td>
+                    <td><strong>@p.ConsumedInPeriod</strong></td>
+                    <td style="color:var(--text-muted);">@p.DailyAvgConsumption.ToString("F1")</td>
+                    <td><span class="@daysClass">@daysLabel</span></td>
+                    <td style="color:var(--text-muted);">@(p.CostPrice.HasValue ? $"₺{p.CostPrice.Value:N2}" : "—")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<!-- ── Trend Modal ── -->
+<div class="modal-overlay" id="trendModal">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title" id="modalTitle">Stok Trendi</span>
+            <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+        <div class="chart-container">
+            <canvas id="trendChart"></canvas>
+            <div class="loading-overlay" id="trendLoading">Yükleniyor…</div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let trendChart = null;
+
+        let state = {
+            preset: '@f.Preset',
+            from:   '@f.From.ToString("yyyy-MM-dd")',
+            to:     '@f.To.AddDays(-1).ToString("yyyy-MM-dd")',
+            tb:     '@f.TimeBase'
+        };
+
+        function buildQs() {
+            const q = new URLSearchParams({ preset: state.preset, timeBase: state.tb });
+            if (state.preset === 'custom') { q.set('from', state.from); q.set('to', state.to); }
+            const cat = document.getElementById('catFilter').value;
+            if (cat) q.set('category', cat);
+            return q.toString();
+        }
+
+        function navigate() { window.location = `/Reports/Stock?${buildQs()}`; }
+
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.preset = btn.dataset.preset;
+                document.getElementById('dateFrom').style.display = state.preset === 'custom' ? '' : 'none';
+                document.getElementById('dateTo'  ).style.display = state.preset === 'custom' ? '' : 'none';
+                if (state.preset !== 'custom') navigate();
+            });
+        });
+        document.querySelectorAll('.timebase-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.timebase-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.tb = btn.dataset.tb;
+                navigate();
+            });
+        });
+        document.getElementById('dateFrom').addEventListener('change', e => { state.from = e.target.value; navigate(); });
+        document.getElementById('dateTo'  ).addEventListener('change', e => { state.to   = e.target.value; navigate(); });
+        document.getElementById('catFilter').addEventListener('change', navigate);
+        document.getElementById('btnCsv').addEventListener('click', () => {
+            window.location = `/Reports/ExportCsv?type=stock&${buildQs()}`;
+        });
+
+        // ── Trend Modal ──────────────────────────────────────────────────────────────
+        function isDark()    { return document.documentElement.dataset.theme !== 'light'; }
+        function gridColor() { return isDark() ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)'; }
+        function textColor() { return isDark() ? '#687080' : '#8A95A3'; }
+
+        async function openTrendModal(row) {
+            const id   = row.dataset.id;
+            const name = row.dataset.name;
+            document.getElementById('modalTitle').textContent = `📈 ${name} — Stok Trendi (Son 30 Gün)`;
+            document.getElementById('trendModal').classList.add('open');
+            document.getElementById('trendLoading').style.display = 'flex';
+
+            if (trendChart) { trendChart.destroy(); trendChart = null; }
+
+            const res  = await fetch(`/Reports/GetStockTrendData?menuItemId=${id}&days=30`);
+            const data = await res.json();
+            document.getElementById('trendLoading').style.display = 'none';
+
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Stok',
+                        data: data.stocks,
+                        borderColor: '#F97316',
+                        backgroundColor: '#F97316',
+                        borderWidth: 2.5,
+                        tension: .35,
+                        fill: false,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#F97316'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: gridColor() }, ticks: { color: textColor() } },
+                        y: { grid: { color: gridColor() }, ticks: { color: textColor() }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function closeModal() {
+            document.getElementById('trendModal').classList.remove('open');
+        }
+
+        document.getElementById('trendModal').addEventListener('click', e => {
+            if (e.target === document.getElementById('trendModal')) closeModal();
+        });
+    </script>
+}

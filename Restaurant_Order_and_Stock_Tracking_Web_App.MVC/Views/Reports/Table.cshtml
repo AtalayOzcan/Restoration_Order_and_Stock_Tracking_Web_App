@@ -1,0 +1,371 @@
+﻿@model Restaurant_Order_and_Stock_Tracking_Web_App.MVC.ViewModels.Reports.TableReportViewModel
+@{
+    ViewData["Title"] = "Masa Performans Raporu";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var f = Model.Filter;
+}
+
+@section Styles {
+    <style>
+        .rpt-page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 22px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+            .rpt-page-header h1 {
+                font-family: 'Syne',sans-serif;
+                font-size: 22px;
+                font-weight: 700;
+            }
+
+            .rpt-page-header .sub {
+                font-size: 12px;
+                color: var(--text-muted);
+                margin-top: 3px;
+            }
+
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+        }
+
+        .preset-btn {
+            padding: 6px 14px;
+            border-radius: 7px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all .15s;
+        }
+
+            .preset-btn:hover {
+                background: var(--surface2);
+                color: var(--text);
+            }
+
+            .preset-btn.active {
+                background: var(--accent);
+                color: #fff;
+                border-color: var(--accent);
+            }
+
+        .filter-sep {
+            width: 1px;
+            height: 20px;
+            background: var(--border);
+            margin: 0 4px;
+        }
+
+        .filter-date {
+            padding: 6px 10px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text);
+            font-size: 13px;
+        }
+
+        .btn-csv {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 7px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            background: rgba(16,185,129,.1);
+            color: #10b981;
+            border: 1px solid rgba(16,185,129,.25);
+            cursor: pointer;
+            transition: opacity .2s;
+            margin-left: auto;
+        }
+
+            .btn-csv:hover {
+                opacity: .8;
+            }
+
+        .sum-grid {
+            display: grid;
+            grid-template-columns: repeat(3,1fr);
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        @@media(max-width:700px) {
+            .sum-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .sum-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+        }
+
+            .sum-card .sum-val {
+                font-size: 22px;
+                font-weight: 800;
+                color: var(--text);
+                margin-bottom: 4px;
+            }
+
+            .sum-card .sum-label {
+                font-size: 12px;
+                color: var(--text-muted);
+            }
+
+        .chart-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 14px;
+        }
+
+        .chart-card-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 14px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 260px;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .table-wrap {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+            .data-table th {
+                padding: 10px 14px;
+                color: var(--text-muted);
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: .05em;
+                border-bottom: 1px solid var(--border);
+                background: var(--surface2);
+                text-align: left;
+            }
+
+            .data-table td {
+                padding: 10px 14px;
+                border-bottom: 1px solid var(--border);
+                color: var(--text);
+            }
+
+            .data-table tr:last-child td {
+                border-bottom: none;
+            }
+
+            .data-table tr:hover td {
+                background: var(--surface2);
+            }
+
+        .pill-accent {
+            display: inline-block;
+            background: rgba(249,115,22,.12);
+            color: var(--accent);
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+    </style>
+}
+
+<div class="rpt-page-header">
+    <div>
+        <h1>🪑 Masa Performans Raporu</h1>
+        <div class="sub">@f.DisplayRange</div>
+    </div>
+</div>
+
+<div class="filter-bar">
+    <button class="preset-btn @(f.Preset == "today" ? "active" : "")" data-preset="today">Bugün</button>
+    <button class="preset-btn @(f.Preset == "week" ? "active" : "")" data-preset="week">Son 7 Gün</button>
+    <button class="preset-btn @(f.Preset == "month" ? "active" : "")" data-preset="month">Son 30 Gün</button>
+    <button class="preset-btn @(f.Preset == "custom" ? "active" : "")" data-preset="custom">Özel</button>
+    <div class="filter-sep"></div>
+    <input type="date" id="dateFrom" class="filter-date" value="@f.From.ToString("yyyy-MM-dd")" style="display:@(f.Preset == "custom" ? "" : "none")" />
+    <input type="date" id="dateTo" class="filter-date" value="@f.To.AddDays(-1).ToString("yyyy-MM-dd")" style="display:@(f.Preset == "custom" ? "" : "none")" />
+    <button class="btn-csv" id="btnCsv">📥 CSV İndir</button>
+</div>
+
+<!-- ── Özet Kartlar ── -->
+<div class="sum-grid">
+    <div class="sum-card">
+        <div class="sum-val">@Model.TotalOrders</div>
+        <div class="sum-label">Toplam Adisyon</div>
+    </div>
+    <div class="sum-card">
+        <div class="sum-val">@Model.AvgDuration.ToString("F0") dk</div>
+        <div class="sum-label">Ortalama Süre</div>
+    </div>
+    <div class="sum-card">
+        <div class="sum-val">@Model.BusiestHour:00</div>
+        <div class="sum-label">En Yoğun Saat</div>
+    </div>
+</div>
+
+<!-- ── Bar Chart ── -->
+<div class="chart-card">
+    <div class="chart-card-title">📊 Masa Bazlı Ciro Karşılaştırması</div>
+    <div class="chart-container">
+        <canvas id="tableRevenueChart"></canvas>
+        <div class="loading-overlay" id="chartLoading">Yükleniyor…</div>
+    </div>
+</div>
+
+<!-- ── Masa Tablosu ── -->
+<div class="table-wrap">
+    @if (Model.Tables.Any())
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Masa</th>
+                    <th>Adisyon Sayısı</th>
+                    <th>Toplam Ciro</th>
+                    <th>Ort. Süre</th>
+                    <th>Ort. Sepet</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in Model.Tables)
+                {
+                    <tr>
+                        <td><strong>@t.TableName</strong></td>
+                        <td><span class="pill-accent">@t.TotalOrders</span></td>
+                        <td>₺@t.TotalRevenue.ToString("N2")</td>
+                        <td style="color:var(--text-muted);">@t.AvgDurationMinutes.ToString("F0") dk</td>
+                        <td>₺@t.AvgOrderValue.ToString("N2")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <div class="empty-state">Bu dönemde kapatılmış adisyon bulunamadı.</div>
+    }
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let state = {
+            preset: '@f.Preset',
+            from:   '@f.From.ToString("yyyy-MM-dd")',
+            to:     '@f.To.AddDays(-1).ToString("yyyy-MM-dd")'
+        };
+
+        function buildQs() {
+            const q = new URLSearchParams({ preset: state.preset });
+            if (state.preset === 'custom') { q.set('from', state.from); q.set('to', state.to); }
+            return q.toString();
+        }
+
+        function navigate() { window.location = `/Reports/Table?${buildQs()}`; }
+
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.preset = btn.dataset.preset;
+                document.getElementById('dateFrom').style.display = state.preset === 'custom' ? '' : 'none';
+                document.getElementById('dateTo'  ).style.display = state.preset === 'custom' ? '' : 'none';
+                if (state.preset !== 'custom') navigate();
+            });
+        });
+        document.getElementById('dateFrom').addEventListener('change', e => { state.from = e.target.value; navigate(); });
+        document.getElementById('dateTo'  ).addEventListener('change', e => { state.to   = e.target.value; navigate(); });
+        document.getElementById('btnCsv').addEventListener('click', () => {
+            window.location = `/Reports/ExportCsv?type=table&${buildQs()}`;
+        });
+
+        // ── Masa Ciro Karşılaştırması (Bar) ─────────────────────────────────────────
+        function isDark()    { return document.documentElement.dataset.theme !== 'light'; }
+        function gridColor() { return isDark() ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)'; }
+        function textColor() { return isDark() ? '#687080' : '#8A95A3'; }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('chartLoading').style.display = 'none';
+
+            const tableData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                            Model.Tables.Select(t => new { name = t.TableName, revenue = t.TotalRevenue })
+                    ));
+
+        if (!tableData.length) return;
+
+            const ctx = document.getElementById('tableRevenueChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: tableData.map(x => x.name),
+                    datasets: [{
+                        label: 'Ciro (₺)',
+                        data: tableData.map(x => x.revenue),
+                        backgroundColor: 'rgba(249,115,22,.75)',
+                        borderColor: '#F97316',
+                        borderWidth: 2,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: gridColor() }, ticks: { color: textColor() } },
+                        y: { grid: { color: gridColor() }, ticks: { color: textColor(), callback: v => `₺${v}` } }
+                    }
+                }
+            });
+        });
+    </script>
+}

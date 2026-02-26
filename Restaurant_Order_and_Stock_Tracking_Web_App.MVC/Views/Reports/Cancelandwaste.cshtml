@@ -1,0 +1,542 @@
+﻿@model Restaurant_Order_and_Stock_Tracking_Web_App.MVC.ViewModels.Reports.WasteReportViewModel
+@{
+    ViewData["Title"] = "İptal & Fire Raporu";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var f = Model.Filter;
+}
+
+@section Styles {
+    <style>
+        .rpt-page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 22px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+            .rpt-page-header h1 {
+                font-family: 'Syne',sans-serif;
+                font-size: 22px;
+                font-weight: 700;
+            }
+
+            .rpt-page-header .sub {
+                font-size: 12px;
+                color: var(--text-muted);
+                margin-top: 3px;
+            }
+
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+        }
+
+        .preset-btn {
+            padding: 6px 14px;
+            border-radius: 7px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all .15s;
+        }
+
+            .preset-btn:hover {
+                background: var(--surface2);
+                color: var(--text);
+            }
+
+            .preset-btn.active {
+                background: var(--accent);
+                color: #fff;
+                border-color: var(--accent);
+            }
+
+        .filter-sep {
+            width: 1px;
+            height: 20px;
+            background: var(--border);
+            margin: 0 4px;
+        }
+
+        .filter-date {
+            padding: 6px 10px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text);
+            font-size: 13px;
+        }
+
+        .sum-grid {
+            display: grid;
+            grid-template-columns: repeat(3,1fr);
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        @@media(max-width:700px) {
+            .sum-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .sum-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+        }
+
+            .sum-card .sum-val {
+                font-size: 22px;
+                font-weight: 800;
+                color: var(--text);
+                margin-bottom: 4px;
+            }
+
+            .sum-card .sum-label {
+                font-size: 12px;
+                color: var(--text-muted);
+            }
+
+            .sum-card.red .sum-val {
+                color: #ef4444;
+            }
+
+            .sum-card.amber .sum-val {
+                color: #f59e0b;
+            }
+
+            .sum-card.blue .sum-val {
+                color: #3b82f6;
+            }
+
+        .chart-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+
+        @@media(max-width:860px) {
+            .chart-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+        }
+
+        .chart-card-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 14px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 260px;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--surface);
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        /* Accordion tablo */
+        .acc-section {
+            margin-bottom: 14px;
+        }
+
+        .acc-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 18px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text);
+            transition: background .15s;
+        }
+
+            .acc-header:hover {
+                background: var(--surface2);
+            }
+
+            .acc-header .count {
+                font-size: 12px;
+                color: var(--text-muted);
+                font-weight: 400;
+            }
+
+        .acc-body {
+            display: none;
+        }
+
+            .acc-body.open {
+                display: block;
+            }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0 0 12px 12px;
+        }
+
+            .data-table th {
+                padding: 9px 14px;
+                color: var(--text-muted);
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: .05em;
+                border-bottom: 1px solid var(--border);
+                background: var(--surface2);
+                text-align: left;
+            }
+
+            .data-table td {
+                padding: 9px 14px;
+                border-bottom: 1px solid var(--border);
+                color: var(--text);
+            }
+
+            .data-table tr:last-child td {
+                border-bottom: none;
+            }
+
+            .data-table tr:hover td {
+                background: var(--surface2);
+            }
+
+        .pill-red {
+            display: inline-block;
+            background: rgba(239,68,68,.12);
+            color: #ef4444;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+
+        .pill-amber {
+            display: inline-block;
+            background: rgba(245,158,11,.12);
+            color: #f59e0b;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+
+        .btn-csv {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 7px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            background: rgba(16,185,129,.1);
+            color: #10b981;
+            border: 1px solid rgba(16,185,129,.25);
+            cursor: pointer;
+            transition: opacity .2s;
+        }
+
+            .btn-csv:hover {
+                opacity: .8;
+            }
+
+        .empty-state {
+            text-align: center;
+            padding: 24px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+    </style>
+}
+
+<div class="rpt-page-header">
+    <div>
+        <h1>🗑️ İptal & Fire Raporu</h1>
+        <div class="sub">@f.DisplayRange</div>
+    </div>
+    <button class="btn-csv" id="btnCsv">📥 CSV İndir</button>
+</div>
+
+<div class="filter-bar">
+    <button class="preset-btn @(f.Preset == "today" ? "active" : "")" data-preset="today">Bugün</button>
+    <button class="preset-btn @(f.Preset == "week" ? "active" : "")" data-preset="week">Son 7 Gün</button>
+    <button class="preset-btn @(f.Preset == "month" ? "active" : "")" data-preset="month">Son 30 Gün</button>
+    <button class="preset-btn @(f.Preset == "custom" ? "active" : "")" data-preset="custom">Özel</button>
+    <div class="filter-sep"></div>
+    <input type="date" id="dateFrom" class="filter-date" value="@f.From.ToString("yyyy-MM-dd")" style="display:@(f.Preset == "custom" ? "" : "none")" />
+    <input type="date" id="dateTo" class="filter-date" value="@f.To.AddDays(-1).ToString("yyyy-MM-dd")" style="display:@(f.Preset == "custom" ? "" : "none")" />
+</div>
+
+<!-- ── Özet Kartlar ── -->
+<div class="sum-grid">
+    <div class="sum-card red">
+        <div class="sum-val">₺@Model.TotalWasteLoss.ToString("N2")</div>
+        <div class="sum-label">Toplam Fire Tutarı</div>
+    </div>
+    <div class="sum-card amber">
+        <div class="sum-val">₺@Model.OrderWasteTotal.ToString("N2")</div>
+        <div class="sum-label">Sipariş Kaynaklı Fire</div>
+    </div>
+    <div class="sum-card blue">
+        <div class="sum-val">₺@Model.StockLogWasteTotal.ToString("N2")</div>
+        <div class="sum-label">Stok Kaynaklı Fire</div>
+    </div>
+</div>
+
+<!-- ── Grafikler ── -->
+<div class="chart-row">
+    <div class="chart-card">
+        <div class="chart-card-title">🔵 Kaynak Dağılımı</div>
+        <div class="chart-container">
+            <canvas id="wasteSourceChart"></canvas>
+            <div class="loading-overlay" id="sourceLoading">Yükleniyor…</div>
+        </div>
+    </div>
+    <div class="chart-card">
+        <div class="chart-card-title">📦 En Çok Fire Veren 10 Ürün</div>
+        <div class="chart-container">
+            <canvas id="wasteProductChart"></canvas>
+            <div class="loading-overlay" id="productLoading">Yükleniyor…</div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Sipariş Kaynaklı Fire Tablosu ── -->
+<div class="acc-section">
+    <div class="acc-header" onclick="toggleAcc(this)">
+        <span>🧾 Sipariş Kaynaklı Fireler</span>
+        <span class="count">@Model.OrderWastes.Count kayıt ▼</span>
+    </div>
+    <div class="acc-body">
+        @if (Model.OrderWastes.Any())
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Ürün</th>
+                        <th>Miktar</th>
+                        <th>Birim Fiyat</th>
+                        <th>Toplam Kayıp</th>
+                        <th>İptal Nedeni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var w in Model.OrderWastes)
+                    {
+                        <tr>
+                            <td style="color:var(--text-muted); font-size:12px;">@w.Date.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                            <td>@w.ProductName</td>
+                            <td><span class="pill-amber">@w.Quantity</span></td>
+                            <td>₺@w.UnitPrice.ToString("N2")</td>
+                            <td><span class="pill-red">₺@w.TotalLoss.ToString("N2")</span></td>
+                            <td style="color:var(--text-muted);">@(string.IsNullOrEmpty(w.CancelReason) ? "—" : w.CancelReason)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="empty-state">Bu dönemde sipariş kaynaklı fire kaydı yok.</div>
+        }
+    </div>
+</div>
+
+<!-- ── Stok Log Kaynaklı Fire Tablosu ── -->
+<div class="acc-section">
+    <div class="acc-header" onclick="toggleAcc(this)">
+        <span>📦 Stok Hareketi Kaynaklı Fireler</span>
+        <span class="count">@Model.StockLogWastes.Count kayıt ▼</span>
+    </div>
+    <div class="acc-body">
+        @if (Model.StockLogWastes.Any())
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Ürün</th>
+                        <th>Miktar</th>
+                        <th>Birim Fiyat</th>
+                        <th>Toplam Kayıp</th>
+                        <th>Not</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var w in Model.StockLogWastes)
+                    {
+                        <tr>
+                            <td style="color:var(--text-muted); font-size:12px;">@w.Date.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                            <td>@w.ProductName</td>
+                            <td><span class="pill-amber">@w.Quantity</span></td>
+                            <td>₺@w.UnitPrice.ToString("N2")</td>
+                            <td><span class="pill-red">₺@w.TotalLoss.ToString("N2")</span></td>
+                            <td style="color:var(--text-muted);">@(string.IsNullOrEmpty(w.Note) ? "—" : w.Note)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="empty-state">Bu dönemde stok kaynaklı fire kaydı yok.</div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let charts = {};
+        function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+        function isDark()    { return document.documentElement.dataset.theme !== 'light'; }
+        function gridColor() { return isDark() ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)'; }
+        function textColor() { return isDark() ? '#687080' : '#8A95A3'; }
+
+        let state = {
+            preset: '@f.Preset',
+            from:   '@f.From.ToString("yyyy-MM-dd")',
+            to:     '@f.To.AddDays(-1).ToString("yyyy-MM-dd")'
+        };
+
+        function buildQs() {
+            const q = new URLSearchParams({ preset: state.preset });
+            if (state.preset === 'custom') { q.set('from', state.from); q.set('to', state.to); }
+            return q.toString();
+        }
+
+        function toggleAcc(header) {
+            const body = header.nextElementSibling;
+            body.classList.toggle('open');
+            const count = header.querySelector('.count');
+            count.textContent = count.textContent.endsWith('▼')
+                ? count.textContent.replace('▼', '▲')
+                : count.textContent.replace('▲', '▼');
+        }
+
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.preset = btn.dataset.preset;
+                const isCustom = state.preset === 'custom';
+                document.getElementById('dateFrom').style.display = isCustom ? '' : 'none';
+                document.getElementById('dateTo'  ).style.display = isCustom ? '' : 'none';
+                if (!isCustom) navigatePage();
+            });
+        });
+        document.getElementById('dateFrom').addEventListener('change', e => { state.from = e.target.value; navigatePage(); });
+        document.getElementById('dateTo'  ).addEventListener('change', e => { state.to   = e.target.value; navigatePage(); });
+
+        function navigatePage() { window.location = `/Reports/CancelAndWaste?${buildQs()}`; }
+
+        async function loadWasteCharts() {
+            const res  = await fetch(`/Reports/GetWasteChartData?${buildQs()}`);
+            const data = await res.json();
+
+            document.getElementById('sourceLoading').style.display  = 'none';
+            document.getElementById('productLoading').style.display = 'none';
+
+            // ── Kaynak Dağılımı (Doughnut) ───────────────────────────────────────────
+            destroyChart('wasteSource');
+            charts['wasteSource'] = new Chart(document.getElementById('wasteSourceChart').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Sipariş Kaynağı', 'Stok Hareketi'],
+                    datasets: [{
+                        data: [data.orderWasteTotal, data.stockLogWasteTotal],
+                        backgroundColor: ['#ef4444', '#3b82f6'],
+                        borderWidth: 2,
+                        borderColor: isDark() ? '#161A20' : '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: textColor() } },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `₺${ctx.parsed.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`
+                            }
+                        }
+                    }
+                }
+            });
+
+            // ── En Çok Fire Veren Ürünler (Bar) ─────────────────────────────────────
+            destroyChart('wasteProduct');
+            const top = data.topProducts || [];
+            charts['wasteProduct'] = new Chart(document.getElementById('wasteProductChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: top.map(x => x.name),
+                    datasets: [{
+                        label: 'Kayıp (₺)',
+                        data: top.map(x => x.loss),
+                        backgroundColor: 'rgba(239,68,68,.75)',
+                        borderColor: '#ef4444',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: gridColor() }, ticks: { color: textColor(), callback: v => `₺${v}` } },
+                        y: { grid: { display: false }, ticks: { color: textColor() } }
+                    }
+                }
+            });
+        }
+
+        document.getElementById('btnCsv').addEventListener('click', () => {
+            window.location = `/Reports/ExportCsv?type=waste&${buildQs()}`;
+        });
+
+        document.addEventListener('DOMContentLoaded', loadWasteCharts);
+    </script>
+}
