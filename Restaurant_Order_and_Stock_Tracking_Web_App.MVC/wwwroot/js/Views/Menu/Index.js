@@ -40,32 +40,46 @@ function openCreateModal() {
     document.getElementById('c_isAvailable').checked = true;
     openModal('createModal');
 }
-
-document.getElementById('createForm').addEventListener('submit', async e => {
+// ── Create ───────────────────────────────────────────────────
+document.getElementById('createForm')?.addEventListener('submit', async e => {
     e.preventDefault();
-    const btn = e.submitter; btn.disabled = true;
+    const btn = e.submitter;
+    btn.disabled = true;
 
-    const body = new URLSearchParams({
+    // DTO'ya birebir uygun JSON payload
+    const payload = {
         menuItemName: document.getElementById('c_name').value,
-        categoryId: document.getElementById('c_categoryId').value,
+        categoryId: parseInt(document.getElementById('c_categoryId').value) || 0,
         menuItemPriceStr: document.getElementById('c_price').value,
         description: document.getElementById('c_description').value,
-        stockQuantity: document.getElementById('c_stock').value,
+        stockQuantity: parseInt(document.getElementById('c_stock').value) || 0,
         trackStock: document.getElementById('c_trackStock').checked,
-        isAvailable: document.getElementById('c_isAvailable').checked,
-        __RequestVerificationToken: getToken()
-    });
+        isAvailable: document.getElementById('c_isAvailable').checked
+    };
 
-    const res = await fetch('/Menu/Create', { method: 'POST', body });
-    const data = await res.json();
-    btn.disabled = false;
+    try {
+        const res = await fetch('/Menu/Create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json', // C# tarafındaki [FromBody] bunu bekler
+                'RequestVerificationToken': getToken()
+            },
+            body: JSON.stringify(payload)
+        });
 
-    if (data.success) {
-        closeModal('createModal');
-        showToast(data.message, 'success');
-        setTimeout(() => location.reload(), 800);
-    } else {
-        showToast(data.message, 'error');
+        const data = await res.json();
+        btn.disabled = false;
+
+        if (data.success) {
+            closeModal('createModal');
+            showToast(data.message, 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast(data.message, 'error');
+        }
+    } catch (error) {
+        btn.disabled = false;
+        showToast("Bağlantı hatası oluştu.", 'error');
     }
 });
 
@@ -86,35 +100,47 @@ async function openEditModal(id) {
     openModal('editModal');
 }
 
-document.getElementById('editForm').addEventListener('submit', async e => {
+document.getElementById('editForm')?.addEventListener('submit', async e => {
     e.preventDefault();
-    const btn = e.submitter; btn.disabled = true;
+    const btn = e.submitter;
+    btn.disabled = true;
 
-    const body = new URLSearchParams({
-        id: document.getElementById('e_id').value,
+    const payload = {
+        id: parseInt(document.getElementById('e_id').value), // Sadece Edit'te Id var
         menuItemName: document.getElementById('e_name').value,
-        categoryId: document.getElementById('e_categoryId').value,
+        categoryId: parseInt(document.getElementById('e_categoryId').value) || 0,
         menuItemPriceStr: document.getElementById('e_price').value,
         description: document.getElementById('e_description').value,
-        stockQuantity: document.getElementById('e_stock').value,
+        stockQuantity: parseInt(document.getElementById('e_stock').value) || 0,
         trackStock: document.getElementById('e_trackStock').checked,
-        isAvailable: document.getElementById('e_isAvailable').checked,
-        __RequestVerificationToken: getToken()
-    });
+        isAvailable: document.getElementById('e_isAvailable').checked
+    };
 
-    const res = await fetch('/Menu/Edit', { method: 'POST', body });
-    const data = await res.json();
-    btn.disabled = false;
+    try {
+        const res = await fetch('/Menu/Edit', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': getToken()
+            },
+            body: JSON.stringify(payload)
+        });
 
-    if (data.success) {
-        closeModal('editModal');
-        showToast(data.message, 'success');
-        setTimeout(() => location.reload(), 800);
-    } else {
-        showToast(data.message, 'error');
+        const data = await res.json();
+        btn.disabled = false;
+
+        if (data.success) {
+            closeModal('editModal');
+            showToast(data.message, 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast(data.message, 'error');
+        }
+    } catch (error) {
+        btn.disabled = false;
+        showToast("Bağlantı hatası oluştu.", 'error');
     }
 });
-
 // ── Delete ───────────────────────────────────────────────────
 function openDeleteModal(id, name) {
     document.getElementById('d_id').value = id;

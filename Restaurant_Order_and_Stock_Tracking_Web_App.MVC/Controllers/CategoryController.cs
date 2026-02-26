@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data;
+using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Dtos.Category;
 using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models;
+using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.ViewModels.Reports;
 
 namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
 {
@@ -57,22 +59,22 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
         // ── POST: /Category/Create  (AJAX JSON) ─────────────────────────
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(string categoryName, int categorySortOrder, bool isActive)
+        public async Task<IActionResult> Create([FromBody] CategoryCreateDto dto) // [FromBody] eklendi, parametreler DTO oldu
         {
-            if (string.IsNullOrWhiteSpace(categoryName))
+            if (string.IsNullOrWhiteSpace(dto.CategoryName))
                 return Json(new { success = false, message = "Kategori adı boş olamaz." });
 
             bool exists = await _context.Categories
-                .AnyAsync(c => c.CategoryName.ToLower() == categoryName.Trim().ToLower());
+                .AnyAsync(c => c.CategoryName.ToLower() == dto.CategoryName.Trim().ToLower());
 
             if (exists)
                 return Json(new { success = false, message = "Bu kategori adı zaten mevcut." });
 
-            var category = new Category
+            var category = new Models.Category
             {
-                CategoryName = categoryName.Trim(),
-                CategorySortOrder = categorySortOrder,
-                IsActive = isActive
+                CategoryName = dto.CategoryName.Trim(),
+                CategorySortOrder = dto.CategorySortOrder,
+                IsActive = dto.IsActive
             };
 
             _context.Categories.Add(category);
@@ -80,7 +82,6 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
 
             return Json(new { success = true, message = "Kategori başarıyla eklendi." });
         }
-
         // ── GET: /Category/Edit/5 ────────────────────────────────────────
         public async Task<IActionResult> Edit(int id)
         {
@@ -94,25 +95,27 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
         // ── POST: /Category/Edit  (AJAX JSON) ───────────────────────────
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, string categoryName, int categorySortOrder, bool isActive)
+        public async Task<IActionResult> Edit([FromBody] CategoryEditDto dto)
         {
-            var category = await _context.Categories.FindAsync(id);
+            if (dto.Id == null) return Json(new { success = false, message = "Geçersiz ID." });
+
+            var category = await _context.Categories.FindAsync(dto.Id);
             if (category == null)
                 return Json(new { success = false, message = "Kategori bulunamadı." });
 
-            if (string.IsNullOrWhiteSpace(categoryName))
+            if (string.IsNullOrWhiteSpace(dto.CategoryName))
                 return Json(new { success = false, message = "Kategori adı boş olamaz." });
 
             bool exists = await _context.Categories
-                .AnyAsync(c => c.CategoryName.ToLower() == categoryName.Trim().ToLower()
-                            && c.CategoryId != id);
+                .AnyAsync(c => c.CategoryName.ToLower() == dto.CategoryName.Trim().ToLower()
+                            && c.CategoryId != dto.Id);
 
             if (exists)
                 return Json(new { success = false, message = "Bu kategori adı zaten mevcut." });
 
-            category.CategoryName = categoryName.Trim();
-            category.CategorySortOrder = categorySortOrder;
-            category.IsActive = isActive;
+            category.CategoryName = dto.CategoryName.Trim();
+            category.CategorySortOrder = dto.CategorySortOrder;
+            category.IsActive = dto.IsActive;
 
             await _context.SaveChangesAsync();
             return Json(new { success = true, message = "Kategori güncellendi." });
