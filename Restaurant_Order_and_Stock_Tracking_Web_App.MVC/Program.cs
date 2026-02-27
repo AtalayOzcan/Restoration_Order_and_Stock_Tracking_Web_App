@@ -85,13 +85,34 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC
             using (var scope = app.Services.CreateScope())
             {
                 var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+                var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+                // Rolleri garantile
                 foreach (var roleName in new[] { "Admin", "Garson", "Kasiyer" })
                 {
                     if (!await roleManager.RoleExistsAsync(roleName))
                         await roleManager.CreateAsync(new IdentityRole(roleName));
                 }
+
+                // İlk Admin: sistemde hiç Admin yoksa oluştur
+                // Giriş: kullanıcı adı → admin  |  şifre → Admin123
+                // Giriş yaptıktan sonra /User/Edit üzerinden şifreyi değiştirin!
+                if ((await userManager.GetUsersInRoleAsync("Admin")).Count == 0)
+                {
+                    var adminUser = new ApplicationUser
+                    {
+                        UserName = "admin",
+                        FullName = "Sistem Yöneticisi",
+                        EmailConfirmed = true,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    var createResult = await userManager.CreateAsync(adminUser, "Admin123");
+                    if (createResult.Succeeded)
+                        await userManager.AddToRoleAsync(adminUser, "Admin");
+                }
             }
-            // ─────────────────────────────────────────────────────────────────────────
+
 
             app.Run();
         }
