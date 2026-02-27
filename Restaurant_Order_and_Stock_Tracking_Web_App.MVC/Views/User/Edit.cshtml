@@ -1,0 +1,103 @@
+@model Restaurant_Order_and_Stock_Tracking_Web_App.MVC.ViewModels.Users.UserEditViewModel
+@{
+    ViewData["Title"] = "Kullanıcı Düzenle";
+    var roles = ViewBag.Roles as List<string?> ?? new List<string?>();
+    
+    // HTML içinde hata almamak için listeyi burada hazırlıyoruz
+    var roleItems = roles.Select(r => new SelectListItem {
+        Value = r,
+        Text = r == "Admin" ? "Yönetici" : (r == "Garson" ? "Garson" : r)
+    }).ToList();
+}
+@section Styles {
+    <style>
+        .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 2rem; max-width: 560px; margin-bottom: 1.5rem; }
+        .form-title { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 1.5rem; }
+        .f-group { margin-bottom: 1.1rem; }
+        .f-label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--text-muted); margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.4px; }
+        .f-input, .f-select {
+            width: 100%; padding: 0.7rem 0.9rem; background: var(--surface2);
+            border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+            font-size: 0.9rem; outline: none; box-sizing: border-box; transition: border-color 0.2s;
+        }
+        .f-input:focus, .f-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(249,115,22,0.1); }
+        .f-error-msg { font-size: 0.78rem; color: #f87171; margin-top: 0.25rem; }
+        .form-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+        .btn-primary { padding: 0.65rem 1.5rem; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-back { display: inline-block; padding: 0.65rem 1.2rem; background: rgba(255,255,255,0.07); color: var(--text-muted); border: none; border-radius: 8px; font-size: 0.9rem; cursor: pointer; text-decoration: none; }
+        .btn-back:hover { background: rgba(255,255,255,0.12); }
+        .btn-danger-outline { padding: 0.65rem 1.2rem; background: transparent; color: #f87171; border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        .btn-danger-outline:hover { background: rgba(239,68,68,0.1); }
+        .divider { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+        .alert { padding: 0.75rem 1rem; border-radius: 10px; margin-bottom: 1rem; font-size: 0.85rem; }
+        .alert-success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25); color: #4ade80; }
+        .alert-error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+    </style>
+}
+
+<a asp-action="Index" class="btn-back" style="margin-bottom:1rem;">← Geri</a>
+
+@if (TempData["Success"] != null) { <div class="alert alert-success">✓ @TempData["Success"]</div> }
+@if (TempData["Error"] != null) { <div class="alert alert-error">✗ @TempData["Error"]</div> }
+
+<div class="form-card">
+    <div class="form-title">✏️ Kullanıcı Düzenle</div>
+
+    <form asp-action="Edit" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+
+        <div class="f-group">
+            <label class="f-label" asp-for="FullName">Ad Soyad *</label>
+            <input class="f-input" asp-for="FullName" />
+            <span class="f-error-msg" asp-validation-for="FullName"></span>
+        </div>
+
+        <div class="f-group">
+            <label class="f-label" asp-for="UserName">Kullanıcı Adı *</label>
+            <input class="f-input" asp-for="UserName" autocomplete="off" />
+            <span class="f-error-msg" asp-validation-for="UserName"></span>
+        </div>
+
+        <div class="f-group">
+            <label class="f-label" asp-for="Email">E-posta</label>
+            <input class="f-input" asp-for="Email" type="email" />
+            <span class="f-error-msg" asp-validation-for="Email"></span>
+        </div>
+
+        <div class="f-group">
+            <label class="f-label" asp-for="PhoneNumber">Telefon</label>
+            <input class="f-input" asp-for="PhoneNumber" />
+            <span class="f-error-msg" asp-validation-for="PhoneNumber"></span>
+        </div>
+
+        <div class="f-group">
+            <label class="f-label" asp-for="Role">Rol *</label>
+            <select class="f-select" asp-for="Role" asp-items="roleItems">
+                <option value="">— Rol Seçin —</option>
+            </select>
+            <span class="f-error-msg" asp-validation-for="Role"></span>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Kaydet</button>
+            <a asp-action="Index" class="btn-back">İptal</a>
+        </div>
+    </form>
+
+    <hr class="divider" />
+
+    <div class="form-title" style="font-size:1rem;">🔑 Şifre Sıfırla</div>
+    <form asp-action="ResetPassword" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="id" value="@Model.Id" />
+        <div class="f-group">
+            <label class="f-label">Yeni Şifre</label>
+            <input class="f-input" type="password" name="newPassword" placeholder="En az 6 karakter" autocomplete="new-password" />
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-danger-outline" onclick="return confirm('Şifreyi sıfırlamak istediğinize emin misiniz? Mevcut oturum sonlandırılacak.')">Şifreyi Sıfırla</button>
+        </div>
+    </form>
+</div>

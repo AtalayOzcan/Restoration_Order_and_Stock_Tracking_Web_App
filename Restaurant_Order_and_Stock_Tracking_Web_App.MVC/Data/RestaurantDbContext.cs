@@ -1,9 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models;
 
 namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data
 {
-    public class RestaurantDbContext : DbContext
+    public class RestaurantDbContext : IdentityDbContext<ApplicationUser>
     {
         public DbSet<Table> Tables { get; set; }
         public DbSet<Category> Categories { get; set; }
@@ -18,6 +19,8 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            base.OnModelCreating(modelBuilder); // Identity tablolarını oluşturur — MUTLAKA OLMALI
+
             modelBuilder.Entity<Table>(entity =>
             {
                 entity.ToTable("tables");

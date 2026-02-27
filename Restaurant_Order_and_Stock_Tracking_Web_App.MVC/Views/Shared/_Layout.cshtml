@@ -1,4 +1,7 @@
-﻿<!DOCTYPE html>
+﻿@using Microsoft.AspNetCore.Identity
+@inject UserManager<Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models.ApplicationUser> UserManager
+@inject SignInManager<Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models.ApplicationUser> SignInManager
+<!DOCTYPE html>
 <html lang="tr" data-theme="dark">
 <head>
     <meta charset="utf-8" />
@@ -50,6 +53,15 @@
 
             <span class="nav-label">Yönetim</span>
 
+            @if (User.IsInRole("Admin"))
+            {
+                <a class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "User" ? "active" : "")"
+                   asp-controller="User" asp-action="Index">
+                    <span class="nav-icon">👥</span>
+                    <span class="nav-text">Kullanıcılar</span>
+                </a>
+            }
+
             <a class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Menu" ? "active" : "")"
                asp-controller="Menu" asp-action="Index">
                 <span class="nav-icon">🍕</span>
@@ -84,11 +96,26 @@
         </nav>
 
         <div class="sidebar-footer">
-            <div class="avatar">A</div>
+            @{
+                var currentUser = SignInManager.IsSignedIn(User)
+                    ? await UserManager.GetUserAsync(User)
+                    : null;
+                var displayName = currentUser?.FullName?.Trim();
+                if (string.IsNullOrEmpty(displayName)) displayName = currentUser?.UserName ?? "Kullanıcı";
+                var userInitial = displayName.Length > 0 ? displayName[0].ToString().ToUpper() : "?";
+                var userRole = User.IsInRole("Admin") ? "Yönetici" : "Garson";
+            }
+            <div class="avatar">@userInitial</div>
             <div class="avatar-info">
-                <div class="avatar-name">Admin</div>
-                <div class="avatar-role">Yönetici</div>
+                <div class="avatar-name">@displayName</div>
+                <div class="avatar-role">@userRole</div>
             </div>
+            <form asp-controller="Auth" asp-action="Logout" method="post" style="margin:0">
+                @Html.AntiForgeryToken()
+                <button type="submit" title="Çıkış Yap" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;padding:4px;">
+                    🚪
+                </button>
+            </form>
         </div>
 
     </aside>

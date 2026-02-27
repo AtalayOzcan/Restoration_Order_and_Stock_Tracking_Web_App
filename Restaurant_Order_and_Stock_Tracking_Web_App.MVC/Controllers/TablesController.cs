@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data;
 using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models;
@@ -6,6 +7,7 @@ using System.Text.RegularExpressions;
 
 namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
 {
+    [Authorize(Roles = "Admin,Garson")]
     public class TablesController : Controller
     {
         private readonly RestaurantDbContext _db;
@@ -71,6 +73,7 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
         }
 
         // ── POST /Tables/Create ───────────────────────────────────────
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(string tableName, int tableCapacity)
@@ -147,6 +150,7 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
         }
 
         // ── POST /Tables/Delete ───────────────────────────────────────
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(int tableId)
@@ -165,6 +169,7 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
         // ✅ YENİ #4: Masa birleştirme
         // sourceTableId adisyonu → targetTableId adisyonuna birleşir
         // Aynı MenuItemId ise miktarlar toplanır, ayrı satır açılmaz
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> MergeOrder(int sourceTableId, int targetTableId)

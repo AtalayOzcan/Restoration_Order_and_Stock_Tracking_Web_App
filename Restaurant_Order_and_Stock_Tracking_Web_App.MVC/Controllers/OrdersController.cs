@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data;
 using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Dtos;
@@ -7,11 +9,17 @@ using System.Globalization;
 
 namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
 {
+    [Authorize(Roles = "Admin,Garson")]
     public class OrdersController : Controller
     {
         private readonly RestaurantDbContext _db;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public OrdersController(RestaurantDbContext db) => _db = db;
+        public OrdersController(RestaurantDbContext db, UserManager<ApplicationUser> userManager)
+        {
+            _db = db;
+            _userManager = userManager;
+        }
 
         // ─────────────────────────────────────────────────────────────
         // GET /Orders
@@ -100,11 +108,14 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
         // POST /Orders/Create
         // ─────────────────────────────────────────────────────────────
         [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(int tableId, string openedBy, string? orderNote,
+        public async Task<IActionResult> Create(int tableId, string? orderNote,
             List<int> menuItemIds, List<int> quantities, List<string?> itemNotes)
         {
+            // openedBy artık form'dan gelmiyor, Identity'den alınıyor
+            var currentUser = await _userManager.GetUserAsync(User);
+            var openedBy = currentUser?.FullName?.Trim();
             if (string.IsNullOrWhiteSpace(openedBy))
-            { TempData["Error"] = "Garson adı boş olamaz."; return RedirectToAction(nameof(Create), new { tableId }); }
+                openedBy = currentUser?.UserName ?? "Bilinmiyor";
 
             if (menuItemIds == null || !menuItemIds.Any())
             { TempData["Error"] = "En az bir ürün eklemelisiniz."; return RedirectToAction(nameof(Create), new { tableId }); }
