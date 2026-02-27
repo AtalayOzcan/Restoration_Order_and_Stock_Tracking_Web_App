@@ -51,7 +51,7 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC
             // ── Security Stamp Validation ────────────────────────────────
             builder.Services.Configure<SecurityStampValidatorOptions>(options =>
             {
-                options.ValidationInterval = TimeSpan.FromSeconds(30);
+                options.ValidationInterval = TimeSpan.FromMinutes(30); // 30sn → oturum düşürüyordu; stamp ÖNCE güncelleniyor artık
             });
 
             // ── Background Service ───────────────────────────────────────

@@ -293,6 +293,7 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
         // Varolan kalem (aynı ürün + aynı not) varsa merge eder.
         // ─────────────────────────────────────────────────────────────
         [HttpPost]
+        [IgnoreAntiforgeryToken]  // JSON endpoint — antiforgery form-based değil, header üzerinden JS'te gönderiliyor
         public async Task<IActionResult> AddItemBulk([FromBody] BulkAddDto req)
         {
             if (req == null || req.Items == null || !req.Items.Any())

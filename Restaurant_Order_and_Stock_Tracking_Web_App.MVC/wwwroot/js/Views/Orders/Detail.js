@@ -187,6 +187,15 @@
                 body: JSON.stringify(payload)
             });
 
+            // Oturum düştüyse sunucu HTML login sayfasına yönlendirir (302→200)
+            // Content-Type kontrolüyle bunu yakala ve sayfayı yenile
+            const ct = res.headers.get('content-type') || '';
+            if (res.status === 401 || (!ct.includes('application/json') && !res.ok)) {
+                alert('Oturumunuz sona erdi. Giriş sayfasına yönlendiriliyorsunuz.');
+                window.location.href = '/Auth/Login';
+                return;
+            }
+
             if (res.ok) {
                 window.closeModal('addItemModal');
                 location.reload();
@@ -199,7 +208,7 @@
         } catch (e) {
             btn.disabled = false;
             btn.textContent = '✓ Tümünü Adisyona Gönder';
-            alert('Bağlantı hatası: ' + e.message);
+            alert('İstek gönderilemedi. Lütfen sayfayı yenileyip tekrar deneyin.');
         }
     };
 
