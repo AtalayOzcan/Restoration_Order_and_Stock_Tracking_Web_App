@@ -91,9 +91,13 @@ public class AuthController : Controller
             else if (roles.Contains("Kasiyer"))
             {
                 
-                return RedirectToAction("Index","Orders");
+                return RedirectToAction("Index","Tables");
             }
+            else if (roles.Contains("Garson"))
+            {
 
+                return RedirectToAction("Index", "Tables");
+            }
             // Güvenlik: Hiçbirine uymuyorsa yetkisiz erişim sayfasına veya ana sayfaya at
             return RedirectToAction("AccessDenied", "Auth");
             //return RedirectToAction("Index", "Tables");
