@@ -3,10 +3,17 @@
 public class OrderPaymentDto
 {
     public int OrderId { get; set; }
-    public string PayerName { get; set; }
-    public string PaymentMethod { get; set; }
-    public string PaymentAmountStr { get; set; }
-    public string DiscountAmountStr { get; set; }
-    public List<int>? PaidItemIds { get; set; }
-    public List<int>? PaidItemQtys { get; set; }
+    public string? PayerName { get; set; }
+    public string PaymentMethod { get; set; } = "cash";
+    // JS'ten doğrudan decimal gönderilir (string parse gerek yok)
+    public decimal PaymentAmount { get; set; }
+    public decimal DiscountAmount { get; set; }
+    // Paralel paidItemIds/paidItemQtys yerine nesne listesi
+    public List<PaidItemSelectionDto>? PaidItems { get; set; }
+}
+
+public class PaidItemSelectionDto
+{
+    public int OrderItemId { get; set; }
+    public int Quantity { get; set; }
 }

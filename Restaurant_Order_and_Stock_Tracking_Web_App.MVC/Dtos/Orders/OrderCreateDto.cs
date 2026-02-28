@@ -3,9 +3,14 @@
 public class OrderCreateDto
 {
     public int TableId { get; set; }
-    public string OpenedBy { get; set; }
     public string? OrderNote { get; set; }
-    public List<int> MenuItemIds { get; set; }
-    public List<int> Quantities { get; set; }
-    public List<string?> ItemNotes { get; set; }
+    // Paralel listeler yerine nesne listesi — parametre kirliliğini önler
+    public List<OrderCreateItemDto> Items { get; set; } = new();
+}
+
+public class OrderCreateItemDto
+{
+    public int MenuItemId { get; set; }
+    public int Quantity { get; set; }
+    public string? Note { get; set; }
 }

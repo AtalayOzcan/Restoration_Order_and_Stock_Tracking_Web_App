@@ -3,9 +3,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data;
-using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Dtos;
+using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Dtos.Orders;
 using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models;
-using System.Globalization;
 
 namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
 {
@@ -35,7 +34,6 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
             var todayLocalStart = new DateTime(localNow.Year, localNow.Month, localNow.Day, 0, 0, 0, DateTimeKind.Local);
             var todayUtcStart = todayLocalStart.ToUniversalTime();
 
-            // ── Filtresiz (summary bar için) ────────────────────────
             var allActiveOrders = await _db.Orders
                 .Where(o => o.OrderStatus == "open")
                 .Include(o => o.Table)
@@ -52,7 +50,6 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
             ViewBag.AllTodayRevenue = allTodayPastOrders.Where(o => o.OrderStatus == "paid").Sum(o => o.OrderTotalAmount);
             ViewBag.AllTodayPaidCount = allTodayPastOrders.Count(o => o.OrderStatus == "paid");
 
-            // ── Filtrelenmiş (liste için) ────────────────────────────
             var activeOrders = allActiveOrders.ToList();
             var pastOrdersQuery = _db.Orders
                 .Where(o => (o.OrderStatus == "paid" || o.OrderStatus == "cancelled")
@@ -108,30 +105,29 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
         // POST /Orders/Create
         // ─────────────────────────────────────────────────────────────
         [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(int tableId, string? orderNote,
-            List<int> menuItemIds, List<int> quantities, List<string?> itemNotes)
+        public async Task<IActionResult> Create([FromBody] OrderCreateDto dto)
         {
-            // openedBy artık form'dan gelmiyor, Identity'den alınıyor
+            if (dto == null || dto.Items == null || !dto.Items.Any())
+                return Json(new { success = false, message = "En az bir ürün eklemelisiniz." });
+
             var currentUser = await _userManager.GetUserAsync(User);
             var openedBy = currentUser?.FullName?.Trim();
             if (string.IsNullOrWhiteSpace(openedBy))
                 openedBy = currentUser?.UserName ?? "Bilinmiyor";
 
-            if (menuItemIds == null || !menuItemIds.Any())
-            { TempData["Error"] = "En az bir ürün eklemelisiniz."; return RedirectToAction(nameof(Create), new { tableId }); }
-
-            var table = await _db.Tables.FindAsync(tableId);
-            if (table == null) { TempData["Error"] = "Masa bulunamadı."; return RedirectToAction("Index", "Tables"); }
+            var table = await _db.Tables.FindAsync(dto.TableId);
+            if (table == null)
+                return Json(new { success = false, message = "Masa bulunamadı." });
 
             using var tx = await _db.Database.BeginTransactionAsync();
             try
             {
                 var order = new Order
                 {
-                    TableId = tableId,
+                    TableId = dto.TableId,
                     OrderStatus = "open",
                     OrderOpenedBy = openedBy.Trim(),
-                    OrderNote = string.IsNullOrWhiteSpace(orderNote) ? null : orderNote.Trim(),
+                    OrderNote = string.IsNullOrWhiteSpace(dto.OrderNote) ? null : dto.OrderNote.Trim(),
                     OrderTotalAmount = 0,
                     OrderOpenedAt = DateTime.UtcNow
                 };
@@ -139,12 +135,12 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
                 await _db.SaveChangesAsync();
 
                 decimal total = 0;
-                for (int i = 0; i < menuItemIds.Count; i++)
+                foreach (var line in dto.Items)
                 {
-                    var mi = await _db.MenuItems.FindAsync(menuItemIds[i]);
+                    var mi = await _db.MenuItems.FindAsync(line.MenuItemId);
                     if (mi == null) continue;
-                    int qty = quantities[i] < 1 ? 1 : quantities[i];
-                    decimal line = mi.MenuItemPrice * qty;
+                    int qty = line.Quantity < 1 ? 1 : line.Quantity;
+                    decimal lineTotal = mi.MenuItemPrice * qty;
 
                     _db.OrderItems.Add(new OrderItem
                     {
@@ -153,12 +149,12 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
                         OrderItemQuantity = qty,
                         PaidQuantity = 0,
                         OrderItemUnitPrice = mi.MenuItemPrice,
-                        OrderItemLineTotal = line,
-                        OrderItemNote = string.IsNullOrWhiteSpace(itemNotes.ElementAtOrDefault(i)) ? null : itemNotes[i]!.Trim(),
+                        OrderItemLineTotal = lineTotal,
+                        OrderItemNote = string.IsNullOrWhiteSpace(line.Note) ? null : line.Note.Trim(),
                         OrderItemStatus = "pending",
                         OrderItemAddedAt = DateTime.UtcNow
                     });
-                    total += line;
+                    total += lineTotal;
 
                     if (mi.TrackStock)
                     {
@@ -172,10 +168,19 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
 
-                TempData["Success"] = "Adisyon açıldı.";
-                return RedirectToAction(nameof(Detail), new { id = order.OrderId });
+                return Json(new
+                {
+                    success = true,
+                    message = "Adisyon açıldı.",
+                    //redirectUrl = Url.Action(nameof(Detail), new { id = order.OrderId })//ilgili orders detail sayfası kalır
+                    redirectUrl = Url.Action("Index", "Tables")//masalara yönlendirdim 
+                });
             }
-            catch { await tx.RollbackAsync(); TempData["Error"] = "Adisyon açılırken hata oluştu."; return RedirectToAction(nameof(Create), new { tableId }); }
+            catch (Exception ex)
+            {
+                await tx.RollbackAsync();
+                return Json(new { success = false, message = "Adisyon açılırken hata oluştu: " + ex.Message });
+            }
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -205,108 +210,109 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
         // POST /Orders/UpdateItemStatus
         // ─────────────────────────────────────────────────────────────
         [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateItemStatus(int orderItemId, string newStatus, int orderId)
+        public async Task<IActionResult> UpdateItemStatus([FromBody] OrderItemStatusUpdateDto dto)
         {
             var validStatuses = new[] { "pending", "preparing", "served", "cancelled" };
-            if (!validStatuses.Contains(newStatus)) { TempData["Error"] = "Geçersiz durum."; return RedirectToAction(nameof(Detail), new { id = orderId }); }
+            if (!validStatuses.Contains(dto.NewStatus))
+                return Json(new { success = false, message = "Geçersiz durum." });
 
-            var item = await _db.OrderItems.FindAsync(orderItemId);
-            if (item == null) { TempData["Error"] = "Kalem bulunamadı."; return RedirectToAction(nameof(Detail), new { id = orderId }); }
+            var item = await _db.OrderItems.FindAsync(dto.OrderItemId);
+            if (item == null)
+                return Json(new { success = false, message = "Kalem bulunamadı." });
 
-            item.OrderItemStatus = newStatus;
+            item.OrderItemStatus = dto.NewStatus;
             await _db.SaveChangesAsync();
-            return RedirectToAction(nameof(Detail), new { id = orderId });
+
+            return Json(new { success = true, message = "Durum güncellendi." });
         }
 
         // ─────────────────────────────────────────────────────────────
         // POST /Orders/AddItem
         // ─────────────────────────────────────────────────────────────
         [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> AddItem(int orderId, int menuItemId, int quantity, string? note)
+        public async Task<IActionResult> AddItem([FromBody] OrderItemAddDto dto)
         {
-            // ✅ #1 FIX: OrderItems dahil çek — aynı ürün varsa birleştireceğiz
             var order = await _db.Orders
                 .Include(o => o.OrderItems)
-                .FirstOrDefaultAsync(o => o.OrderId == orderId);
-            var mi = await _db.MenuItems.FindAsync(menuItemId);
+                .FirstOrDefaultAsync(o => o.OrderId == dto.OrderId);
+            var mi = await _db.MenuItems.FindAsync(dto.MenuItemId);
 
-            if (order == null || mi == null) { TempData["Error"] = "Adisyon veya ürün bulunamadı."; return RedirectToAction(nameof(Detail), new { id = orderId }); }
-            if (order.OrderStatus != "open") { TempData["Error"] = "Kapalı adisyona ürün eklenemez."; return RedirectToAction(nameof(Detail), new { id = orderId }); }
-            if (quantity < 1) quantity = 1;
+            if (order == null || mi == null)
+                return Json(new { success = false, message = "Adisyon veya ürün bulunamadı." });
+            if (order.OrderStatus != "open")
+                return Json(new { success = false, message = "Kapalı adisyona ürün eklenemez." });
+
+            if (dto.Quantity < 1) dto.Quantity = 1;
 
             using var tx = await _db.Database.BeginTransactionAsync();
             try
             {
-                var noteNorm = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+                var noteNorm = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim();
 
-                // ✅ #1: Aynı ürün, iptal edilmemiş, henüz tamamen ödenmemiş,
-                //        aynı nota sahip kalem var mı? → varsa miktar ekle, yeni satır açma
                 var existing = order.OrderItems.FirstOrDefault(oi =>
-                    oi.MenuItemId == menuItemId &&
+                    oi.MenuItemId == dto.MenuItemId &&
                     oi.OrderItemStatus != "cancelled" &&
                     oi.PaidQuantity < oi.OrderItemQuantity &&
                     oi.OrderItemNote == noteNorm);
 
                 if (existing != null)
                 {
-                    existing.OrderItemQuantity += quantity;
+                    existing.OrderItemQuantity += dto.Quantity;
                     existing.OrderItemLineTotal = existing.OrderItemUnitPrice * existing.OrderItemQuantity;
                 }
                 else
                 {
                     _db.OrderItems.Add(new OrderItem
                     {
-                        OrderId = orderId,
-                        MenuItemId = menuItemId,
-                        OrderItemQuantity = quantity,
+                        OrderId = dto.OrderId,
+                        MenuItemId = dto.MenuItemId,
+                        OrderItemQuantity = dto.Quantity,
                         PaidQuantity = 0,
                         OrderItemUnitPrice = mi.MenuItemPrice,
-                        OrderItemLineTotal = mi.MenuItemPrice * quantity,
+                        OrderItemLineTotal = mi.MenuItemPrice * dto.Quantity,
                         OrderItemNote = noteNorm,
                         OrderItemStatus = "pending",
                         OrderItemAddedAt = DateTime.UtcNow
                     });
                 }
 
-                order.OrderTotalAmount += mi.MenuItemPrice * quantity;
+                order.OrderTotalAmount += mi.MenuItemPrice * dto.Quantity;
 
                 if (mi.TrackStock)
                 {
-                    mi.StockQuantity -= quantity;
+                    mi.StockQuantity -= dto.Quantity;
                     if (mi.StockQuantity <= 0) { mi.StockQuantity = 0; mi.IsAvailable = false; }
                 }
 
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
-                TempData["Success"] = $"{mi.MenuItemName} eklendi.";
-            }
-            catch { await tx.RollbackAsync(); TempData["Error"] = "Ürün eklenirken hata oluştu."; }
 
-            return RedirectToAction(nameof(Detail), new { id = orderId });
+                return Json(new { success = true, message = $"{mi.MenuItemName} eklendi." });
+            }
+            catch (Exception ex)
+            {
+                await tx.RollbackAsync();
+                return Json(new { success = false, message = "Ürün eklenirken hata oluştu: " + ex.Message });
+            }
         }
 
         // ─────────────────────────────────────────────────────────────
         // POST /Orders/AddItemBulk
-        //
-        // Modal içi mini-sepetten gelen JSON dizi toplu ekleme.
-        // Body: { orderId, items: [{menuItemId, quantity, note}, ...] }
-        // Varolan kalem (aynı ürün + aynı not) varsa merge eder.
         // ─────────────────────────────────────────────────────────────
-        [HttpPost]
-        [IgnoreAntiforgeryToken]  // JSON endpoint — antiforgery form-based değil, header üzerinden JS'te gönderiliyor
+        [HttpPost, ValidateAntiForgeryToken]
         public async Task<IActionResult> AddItemBulk([FromBody] BulkAddDto req)
         {
             if (req == null || req.Items == null || !req.Items.Any())
-                return BadRequest(new { error = "Eklenecek ürün bulunamadı." });
+                return Json(new { success = false, message = "Eklenecek ürün bulunamadı." });
 
             var order = await _db.Orders
                 .Include(o => o.OrderItems)
                 .FirstOrDefaultAsync(o => o.OrderId == req.OrderId);
 
             if (order == null)
-                return NotFound(new { error = "Adisyon bulunamadı." });
+                return Json(new { success = false, message = "Adisyon bulunamadı." });
             if (order.OrderStatus != "open")
-                return BadRequest(new { error = "Kapalı adisyona ürün eklenemez." });
+                return Json(new { success = false, message = "Kapalı adisyona ürün eklenemez." });
 
             using var tx = await _db.Database.BeginTransactionAsync();
             try
@@ -322,7 +328,6 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
 
                     var noteNorm = string.IsNullOrWhiteSpace(line.Note) ? null : line.Note.Trim();
 
-                    // Aynı ürün + aynı not + iptal edilmemiş + henüz tam ödenmemiş → merge
                     var existing = order.OrderItems.FirstOrDefault(oi =>
                         oi.MenuItemId == line.MenuItemId &&
                         oi.OrderItemStatus != "cancelled" &&
@@ -365,97 +370,75 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
 
-                return Ok(new { success = true, message = $"{req.Items.Count} ürün eklendi." });
+                return Json(new { success = true, message = $"{req.Items.Count} ürün eklendi." });
             }
             catch (Exception ex)
             {
                 await tx.RollbackAsync();
-                return StatusCode(500, new { error = "Ürünler eklenirken hata oluştu.", detail = ex.Message });
+                return Json(new { success = false, message = "Ürünler eklenirken hata oluştu: " + ex.Message });
             }
         }
 
         // ─────────────────────────────────────────────────────────────
         // POST /Orders/AddPayment
-        //
-        // Kısmi ödeme akışı:
-        //   1. Ödeme kaydı oluştur (Payment tablosu)
-        //   2. Ödenen tutarı kalem bazlı PaidQuantity'ye yaz
-        //      a) Modal'dan kalem seçimi geldiyse → seçilen kalemlere
-        //      b) Direkt tutar girilmişse → FIFO ile en eski kalemlere
-        //   3. Tüm kalemler ödendiyse adisyonu kapat
         // ─────────────────────────────────────────────────────────────
         [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> AddPayment(
-            int orderId,
-            string payerName,
-            string paymentMethod,
-            string paymentAmountStr,
-            string discountAmountStr,
-            // Ödeme modalındaki iselState'den gelen kalem bazlı seçimler
-            List<int>? paidItemIds = null,
-            List<int>? paidItemQtys = null)
+        public async Task<IActionResult> AddPayment([FromBody] OrderPaymentDto dto)
         {
-            var culture = CultureInfo.InvariantCulture;
+            if (dto.PaymentAmount <= 0)
+                return Json(new { success = false, message = "Geçerli bir ödeme tutarı giriniz." });
 
-            if (!decimal.TryParse(paymentAmountStr?.Replace(',', '.'), NumberStyles.Any, culture, out decimal paymentAmount) || paymentAmount <= 0)
-            { TempData["Error"] = "Geçerli bir ödeme tutarı giriniz."; return RedirectToAction(nameof(Detail), new { id = orderId }); }
-
-            decimal.TryParse(discountAmountStr?.Replace(',', '.'), NumberStyles.Any, culture, out decimal discountAmount);
-            if (discountAmount < 0)
-            { TempData["Error"] = "İndirim tutarı negatif olamaz."; return RedirectToAction(nameof(Detail), new { id = orderId }); }
+            if (dto.DiscountAmount < 0)
+                return Json(new { success = false, message = "İndirim tutarı negatif olamaz." });
 
             var order = await _db.Orders
                 .Include(o => o.Payments)
                 .Include(o => o.Table)
                 .Include(o => o.OrderItems)
-                .FirstOrDefaultAsync(o => o.OrderId == orderId);
+                .FirstOrDefaultAsync(o => o.OrderId == dto.OrderId);
 
-            if (order == null) { TempData["Error"] = "Adisyon bulunamadı."; return RedirectToAction(nameof(Index)); }
-            if (order.OrderStatus != "open") { TempData["Error"] = "Bu adisyon zaten kapatılmış."; return RedirectToAction(nameof(Detail), new { id = orderId }); }
+            if (order == null)
+                return Json(new { success = false, message = "Adisyon bulunamadı." });
+            if (order.OrderStatus != "open")
+                return Json(new { success = false, message = "Bu adisyon zaten kapatılmış." });
 
-            var netTotal = order.OrderTotalAmount - discountAmount;
+            var netTotal = order.OrderTotalAmount - dto.DiscountAmount;
             var alreadyPaid = order.Payments.Sum(p => p.PaymentsAmount);
             var remaining = netTotal - alreadyPaid;
 
-            if (paymentAmount > remaining + 0.01m)
-            { TempData["Error"] = $"Ödeme tutarı kalan tutarı (₺{remaining:N2}) aşamaz."; return RedirectToAction(nameof(Detail), new { id = orderId }); }
+            if (dto.PaymentAmount > remaining + 0.01m)
+                return Json(new { success = false, message = $"Ödeme tutarı kalan tutarı (₺{remaining:N2}) aşamaz." });
 
-            int methodCode = paymentMethod switch { "credit_card" => 1, "debit_card" => 2, "other" => 3, _ => 0 };
+            int methodCode = dto.PaymentMethod switch { "credit_card" => 1, "debit_card" => 2, "other" => 3, _ => 0 };
 
             using var tx = await _db.Database.BeginTransactionAsync();
             try
             {
-                // 1. Ödeme kaydı oluştur
                 _db.Payments.Add(new Payment
                 {
-                    OrderId = orderId,
+                    OrderId = dto.OrderId,
                     PaymentsMethod = methodCode,
-                    PaymentsAmount = paymentAmount,
+                    PaymentsAmount = dto.PaymentAmount,
                     PaymentsChangeGiven = 0,
                     PaymentsPaidAt = DateTime.UtcNow,
-                    PaymentsNote = string.IsNullOrWhiteSpace(payerName) ? "" : payerName.Trim()
+                    PaymentsNote = string.IsNullOrWhiteSpace(dto.PayerName) ? "" : dto.PayerName.Trim()
                 });
 
-                // 2. PaidQuantity güncelle
-                bool hasItemSel = paidItemIds != null && paidItemQtys != null
-                               && paidItemIds.Count > 0 && paidItemIds.Count == paidItemQtys.Count;
+                bool hasItemSel = dto.PaidItems != null && dto.PaidItems.Any();
 
                 if (hasItemSel)
                 {
-                    // 2a. Kalem bazlı seçim — modaldan gelen veriler
-                    for (int i = 0; i < paidItemIds!.Count; i++)
+                    foreach (var sel in dto.PaidItems!)
                     {
-                        var oi = order.OrderItems.FirstOrDefault(x => x.OrderItemId == paidItemIds[i]);
-                        if (oi == null || paidItemQtys![i] <= 0) continue;
-
+                        var oi = order.OrderItems.FirstOrDefault(x => x.OrderItemId == sel.OrderItemId);
+                        if (oi == null || sel.Quantity <= 0) continue;
                         int canPay = oi.OrderItemQuantity - oi.PaidQuantity;
-                        oi.PaidQuantity += Math.Min(paidItemQtys[i], canPay);
+                        oi.PaidQuantity += Math.Min(sel.Quantity, canPay);
                     }
                 }
                 else
                 {
-                    // 2b. FIFO — ödenen tutarı en eski kalemlere önce uygula
-                    decimal budget = paymentAmount;
+                    decimal budget = dto.PaymentAmount;
                     var unpaid = order.OrderItems
                         .Where(oi => oi.OrderItemStatus != "cancelled" && oi.PaidQuantity < oi.OrderItemQuantity)
                         .OrderBy(oi => oi.OrderItemAddedAt)
@@ -475,11 +458,11 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
                     }
                 }
 
-                // 3. Adisyon kapanış kontrolü
-                var newTotalPaid = alreadyPaid + paymentAmount;
-                if (newTotalPaid >= netTotal - 0.01m)
+                var newTotalPaid = alreadyPaid + dto.PaymentAmount;
+                bool isClosed = newTotalPaid >= netTotal - 0.01m;
+
+                if (isClosed)
                 {
-                    // Tam ödeme — tüm kalemleri kapat
                     foreach (var oi in order.OrderItems.Where(x => x.OrderItemStatus != "cancelled"))
                         oi.PaidQuantity = oi.OrderItemQuantity;
 
@@ -491,51 +474,57 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
 
-                if (order.OrderStatus == "paid")
+                if (isClosed)
+                    return Json(new { success = true, message = "Adisyon kapatıldı, ödeme tamamlandı.", redirectUrl = Url.Action("Index", "Orders") });//tables de olabilir
+
+                return Json(new
                 {
-                    TempData["Success"] = "Adisyon kapatıldı, ödeme tamamlandı.";
-                    return RedirectToAction("Index", "Tables");
-                }
-
-                TempData["Success"] = $"₺{paymentAmount:N2} ödeme alındı. Kalan: ₺{netTotal - newTotalPaid:N2}";
+                    success = true,
+                    message = $"₺{dto.PaymentAmount:N2} ödeme alındı. Kalan: ₺{netTotal - newTotalPaid:N2}",
+                    redirectUrl = (string?)null
+                });
             }
-            catch { await tx.RollbackAsync(); TempData["Error"] = "Ödeme kaydedilirken hata oluştu."; }
-
-            return RedirectToAction(nameof(Detail), new { id = orderId });
+            catch (Exception ex)
+            {
+                await tx.RollbackAsync();
+                return Json(new { success = false, message = "Ödeme kaydedilirken hata oluştu: " + ex.Message });
+            }
         }
 
         // ─────────────────────────────────────────────────────────────
-        // POST /Orders/Close  (tek seferlik tam ödeme)
+        // POST /Orders/Close
         // ─────────────────────────────────────────────────────────────
         [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> Close(int orderId, string paymentMethod, string paymentAmountStr)
+        public async Task<IActionResult> Close([FromBody] OrderCloseDto dto)
         {
-            if (!decimal.TryParse(paymentAmountStr?.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out decimal paymentAmount))
-            { TempData["Error"] = "Geçerli bir tutar giriniz."; return RedirectToAction(nameof(Detail), new { id = orderId }); }
+            if (dto.PaymentAmount <= 0)
+                return Json(new { success = false, message = "Geçerli bir tutar giriniz." });
 
             var order = await _db.Orders
                 .Include(o => o.Table)
                 .Include(o => o.OrderItems)
-                .FirstOrDefaultAsync(o => o.OrderId == orderId);
+                .FirstOrDefaultAsync(o => o.OrderId == dto.OrderId);
 
-            if (order == null) { TempData["Error"] = "Adisyon bulunamadı."; return RedirectToAction("Index", "Tables"); }
-            if (order.OrderStatus != "open") { TempData["Error"] = "Bu adisyon zaten kapatılmış."; return RedirectToAction(nameof(Detail), new { id = orderId }); }
-            if (paymentAmount < order.OrderTotalAmount) { TempData["Error"] = "Ödeme tutarı toplam tutardan az olamaz."; return RedirectToAction(nameof(Detail), new { id = orderId }); }
+            if (order == null)
+                return Json(new { success = false, message = "Adisyon bulunamadı." });
+            if (order.OrderStatus != "open")
+                return Json(new { success = false, message = "Bu adisyon zaten kapatılmış." });
+            if (dto.PaymentAmount < order.OrderTotalAmount)
+                return Json(new { success = false, message = "Ödeme tutarı toplam tutardan az olamaz." });
 
             using var tx = await _db.Database.BeginTransactionAsync();
             try
             {
                 _db.Payments.Add(new Payment
                 {
-                    OrderId = orderId,
-                    PaymentsMethod = paymentMethod == "card" ? 1 : 0,
-                    PaymentsAmount = paymentAmount,
-                    PaymentsChangeGiven = paymentAmount - order.OrderTotalAmount,
+                    OrderId = dto.OrderId,
+                    PaymentsMethod = dto.PaymentMethod == "card" ? 1 : 0,
+                    PaymentsAmount = dto.PaymentAmount,
+                    PaymentsChangeGiven = dto.PaymentAmount - order.OrderTotalAmount,
                     PaymentsPaidAt = DateTime.UtcNow,
                     PaymentsNote = ""
                 });
 
-                // Tüm kalemleri ödenmiş işaretle
                 foreach (var oi in order.OrderItems.Where(x => x.OrderItemStatus != "cancelled"))
                     oi.PaidQuantity = oi.OrderItemQuantity;
 
@@ -545,203 +534,131 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
 
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
-                TempData["Success"] = "Adisyon kapatıldı, ödeme alındı.";
-                return RedirectToAction("Index", "Tables");
+
+                return Json(new { success = true, message = "Adisyon kapatıldı, ödeme alındı.", redirectUrl = Url.Action("Index", "Tables") });
             }
-            catch { await tx.RollbackAsync(); TempData["Error"] = "Adisyon kapatılırken hata oluştu."; return RedirectToAction(nameof(Detail), new { id = orderId }); }
+            catch (Exception ex)
+            {
+                await tx.RollbackAsync();
+                return Json(new { success = false, message = "Adisyon kapatılırken hata oluştu: " + ex.Message });
+            }
         }
 
         // ─────────────────────────────────────────────────────────────
         // POST /Orders/CloseZero
-        //
-        // Sıfır tutarlı adisyonu ödeme almadan kapat.
-        //
-        // Güvenlik şartları:
-        //   1. OrderTotalAmount == 0  (veya Payments toplamı >= total)
-        //   2. Hiçbir aktif (iptal edilmemiş) kalem kalmamış olmalı
-        //      → tüm ürünler ya CancelledQuantity == OrderItemQuantity
-        //        ya da OrderItemStatus == "cancelled" olmalı
-        //   Bu iki şart sağlanmazsa işlem reddedilir.
-        //
-        // Sonuç: Order.OrderStatus = "cancelled", Table.TableStatus = 0
         // ─────────────────────────────────────────────────────────────
         [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> CloseZero(int orderId)
+        public async Task<IActionResult> CloseZero([FromBody] OrderCloseZeroDto dto)
         {
             var order = await _db.Orders
                 .Include(o => o.Table)
                 .Include(o => o.OrderItems)
-                .FirstOrDefaultAsync(o => o.OrderId == orderId);
+                .FirstOrDefaultAsync(o => o.OrderId == dto.OrderId);
 
             if (order == null)
-            {
-                TempData["Error"] = "Adisyon bulunamadı.";
-                return RedirectToAction(nameof(Index));
-            }
-
+                return Json(new { success = false, message = "Adisyon bulunamadı." });
             if (order.OrderStatus != "open")
-            {
-                TempData["Error"] = "Bu adisyon zaten kapatılmış.";
-                return RedirectToAction(nameof(Detail), new { id = orderId });
-            }
-
-            // ── Güvenlik kontrolü 1: Tutar sıfır olmalı ──────────────
+                return Json(new { success = false, message = "Bu adisyon zaten kapatılmış." });
             if (order.OrderTotalAmount > 0.001m)
-            {
-                TempData["Error"] = "Adisyon tutarı sıfır olmadığı için bu yöntemle kapatılamaz.";
-                return RedirectToAction(nameof(Detail), new { id = orderId });
-            }
+                return Json(new { success = false, message = "Adisyon tutarı sıfır olmadığı için bu yöntemle kapatılamaz." });
 
-            // ── Güvenlik kontrolü 2: Aktif (iptal edilmemiş) kalem olmamalı ──
-            // ActiveQuantity = OrderItemQuantity - CancelledQuantity
             bool hasActiveItems = order.OrderItems.Any(oi =>
                 oi.OrderItemStatus != "cancelled" &&
                 (oi.OrderItemQuantity - oi.CancelledQuantity) > 0);
 
             if (hasActiveItems)
-            {
-                TempData["Error"] = "Adisyonda hâlâ aktif ürünler var. Önce tüm ürünleri iptal edin.";
-                return RedirectToAction(nameof(Detail), new { id = orderId });
-            }
+                return Json(new { success = false, message = "Adisyonda hâlâ aktif ürünler var. Önce tüm ürünleri iptal edin." });
 
             using var tx = await _db.Database.BeginTransactionAsync();
             try
             {
                 order.OrderStatus = "cancelled";
                 order.OrderClosedAt = DateTime.UtcNow;
-
-                if (order.Table != null)
-                    order.Table.TableStatus = 0;   // Masa → Boş
+                if (order.Table != null) order.Table.TableStatus = 0;
 
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
 
-                TempData["Success"] = "Sıfır tutarlı adisyon kapatıldı, masa boşaltıldı.";
-                return RedirectToAction("Index", "Tables");
+                return Json(new { success = true, message = "Sıfır tutarlı adisyon kapatıldı, masa boşaltıldı.", redirectUrl = Url.Action("Index", "Tables") });
             }
-            catch
+            catch (Exception ex)
             {
                 await tx.RollbackAsync();
-                TempData["Error"] = "Adisyon kapatılırken bir hata oluştu.";
-                return RedirectToAction(nameof(Detail), new { id = orderId });
+                return Json(new { success = false, message = "Adisyon kapatılırken bir hata oluştu: " + ex.Message });
             }
         }
 
         // ─────────────────────────────────────────────────────────────
         // POST /Orders/CancelItem
-        //
-        // İş kuralları:
-        //   1. İptal miktarı: 1 ≤ cancelQty ≤ (ActiveQuantity - PaidQuantity)
-        //      (Ödenmiş adeti iptal edemeyiz)
-        //   2. CancelledQuantity artar; OrderItemLineTotal güncellenir
-        //   3. Adisyon OrderTotalAmount düşülür
-        //   4. TrackStock=true ve isWasted=false ise stok iade edilir
-        //   5. ActiveQuantity == 0 olunca status="cancelled"
         // ─────────────────────────────────────────────────────────────
         [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> CancelItem(
-            int orderItemId,
-            int orderId,
-            int cancelQty,
-            string? cancelReason,
-            bool? isWasted)
+        public async Task<IActionResult> CancelItem([FromBody] OrderItemCancelDto dto)
         {
-            if (cancelQty < 1)
-            {
-                TempData["Error"] = "İptal miktarı en az 1 olmalıdır.";
-                return RedirectToAction(nameof(Detail), new { id = orderId });
-            }
+            if (dto.CancelQty < 1)
+                return Json(new { success = false, message = "İptal miktarı en az 1 olmalıdır." });
 
             var item = await _db.OrderItems
                 .Include(oi => oi.MenuItem)
-                .FirstOrDefaultAsync(oi => oi.OrderItemId == orderItemId);
+                .FirstOrDefaultAsync(oi => oi.OrderItemId == dto.OrderItemId);
 
-            var order = await _db.Orders.FindAsync(orderId);
+            var order = await _db.Orders.FindAsync(dto.OrderId);
 
             if (item == null || order == null)
-            {
-                TempData["Error"] = "Kalem veya adisyon bulunamadı.";
-                return RedirectToAction(nameof(Detail), new { id = orderId });
-            }
-
+                return Json(new { success = false, message = "Kalem veya adisyon bulunamadı." });
             if (order.OrderStatus != "open")
-            {
-                TempData["Error"] = "Kapalı adisyonda iptal yapılamaz.";
-                return RedirectToAction(nameof(Detail), new { id = orderId });
-            }
+                return Json(new { success = false, message = "Kapalı adisyonda iptal yapılamaz." });
 
-            // Kaç adet iptal edilebilir?
-            // ActiveQuantity = OrderItemQuantity - CancelledQuantity
-            // Ödenmiş adeti iptal edemeyiz
             int activeQty = item.OrderItemQuantity - item.CancelledQuantity;
             int cancelable = activeQty - item.PaidQuantity;
 
-            if (cancelQty > cancelable)
-            {
-                TempData["Error"] = $"En fazla {cancelable} adet iptal edilebilir " +
-                                    $"({item.PaidQuantity} adet zaten ödendi).";
-                return RedirectToAction(nameof(Detail), new { id = orderId });
-            }
+            if (dto.CancelQty > cancelable)
+                return Json(new { success = false, message = $"En fazla {cancelable} adet iptal edilebilir ({item.PaidQuantity} adet zaten ödendi)." });
 
             using var tx = await _db.Database.BeginTransactionAsync();
             try
             {
-                decimal refund = item.OrderItemUnitPrice * cancelQty;
+                decimal refund = item.OrderItemUnitPrice * dto.CancelQty;
 
-                // ── 1. Kalem güncelle ──────────────────────────────
-                item.CancelledQuantity += cancelQty;
-                item.CancelReason = string.IsNullOrWhiteSpace(cancelReason)
-                                          ? null : cancelReason.Trim();
-                // LineTotal sadece aktif adeti yansıtır
-                item.OrderItemLineTotal = item.OrderItemUnitPrice
-                                         * (item.OrderItemQuantity - item.CancelledQuantity);
+                item.CancelledQuantity += dto.CancelQty;
+                item.CancelReason = string.IsNullOrWhiteSpace(dto.CancelReason) ? null : dto.CancelReason.Trim();
+                item.OrderItemLineTotal = item.OrderItemUnitPrice * (item.OrderItemQuantity - item.CancelledQuantity);
 
-                // Tüm aktif adet iptal edildiyse status="cancelled"
                 if (item.OrderItemQuantity - item.CancelledQuantity <= 0)
                     item.OrderItemStatus = "cancelled";
 
-                // ── 2. Adisyon tutarını düş ────────────────────────
                 order.OrderTotalAmount = Math.Max(0, order.OrderTotalAmount - refund);
 
-                // ── 3. Stok işlemi ─────────────────────────────────
                 bool tracksStock = item.MenuItem != null && item.MenuItem.TrackStock;
 
                 if (tracksStock)
                 {
-                    item.IsWasted = isWasted ?? false;
-
-                    if (isWasted != true)
+                    item.IsWasted = dto.IsWasted ?? false;
+                    if (dto.IsWasted != true)
                     {
-                        // Kullanılmadı → stoğa iade et
-                        item.MenuItem!.StockQuantity += cancelQty;
+                        item.MenuItem!.StockQuantity += dto.CancelQty;
                         if (!item.MenuItem.IsAvailable && item.MenuItem.StockQuantity > 0)
                             item.MenuItem.IsAvailable = true;
                     }
-                    // isWasted==true → zayi, stok iade edilmez
                 }
                 else
                 {
-                    item.IsWasted = null; // stok takibi yok
+                    item.IsWasted = null;
                 }
 
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
 
                 string stockNote = tracksStock
-                    ? (isWasted == true ? " | Zayi/Fire olarak işaretlendi."
-                                        : " | Stoka iade edildi.")
+                    ? (dto.IsWasted == true ? " | Zayi/Fire olarak işaretlendi." : " | Stoka iade edildi.")
                     : string.Empty;
 
-                TempData["Success"] = $"{cancelQty} adet iptal edildi.{stockNote}";
+                return Json(new { success = true, message = $"{dto.CancelQty} adet iptal edildi.{stockNote}" });
             }
-            catch
+            catch (Exception ex)
             {
                 await tx.RollbackAsync();
-                TempData["Error"] = "İptal işlemi sırasında bir hata oluştu.";
+                return Json(new { success = false, message = "İptal işlemi sırasında bir hata oluştu: " + ex.Message });
             }
-
-            return RedirectToAction(nameof(Detail), new { id = orderId });
         }
-
     }
 }

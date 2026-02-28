@@ -141,24 +141,18 @@
                             @if (item.OrderItemStatus == "pending")
                             {
                                 <span class="sflow-arrow">→</span>
-                                <form asp-controller="Orders" asp-action="UpdateItemStatus" method="post" style="display:inline">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="orderItemId" value="@item.OrderItemId" />
-                                    <input type="hidden" name="newStatus" value="preparing" />
-                                    <input type="hidden" name="orderId" value="@Model.OrderId" />
-                                    <button type="submit" class="sflow-btn sflow-btn-prepare">Hazırlıyor</button>
-                                </form>
+                                <button type="button" class="sflow-btn sflow-btn-prepare"
+                                        onclick="updateItemStatus(@item.OrderItemId, 'preparing')">
+                                    Hazırlıyor
+                                </button>
                             }
                             else if (item.OrderItemStatus == "preparing")
                             {
                                 <span class="sflow-arrow">→</span>
-                                <form asp-controller="Orders" asp-action="UpdateItemStatus" method="post" style="display:inline">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="orderItemId" value="@item.OrderItemId" />
-                                    <input type="hidden" name="newStatus" value="served" />
-                                    <input type="hidden" name="orderId" value="@Model.OrderId" />
-                                    <button type="submit" class="sflow-btn sflow-btn-serve">Servis Et ✓</button>
-                                </form>
+                                <button type="button" class="sflow-btn sflow-btn-serve"
+                                        onclick="updateItemStatus(@item.OrderItemId, 'served')">
+                                    Servis Et ✓
+                                </button>
                             }
                             @* ── İptal Et butonu — tüm aktif kalemler için ── *@
                             @{
@@ -168,12 +162,12 @@
                             {
                                 <button type="button" class="sflow-btn sflow-btn-cancel"
                                         onclick="openCancelModal(
-                                                                                @item.OrderItemId,
-                                                                                '@Html.Raw(item.MenuItem?.MenuItemName?.Replace("'", "&#39;") ?? "")',
-                                                                                @item.OrderItemUnitPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture),
-                                                                                @cancelable,
-                                                                                @(item.MenuItem?.TrackStock == true ? "true" : "false")
-                                                                            )">
+                                                                                            @item.OrderItemId,
+                                                                                            '@Html.Raw(item.MenuItem?.MenuItemName?.Replace("'", "&#39;") ?? "")',
+                                                                                            @item.OrderItemUnitPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture),
+                                                                                            @cancelable,
+                                                                                            @(item.MenuItem?.TrackStock == true ? "true" : "false")
+                                                                                        )">
                                     ✕ İptal
                                 </button>
                             }
@@ -281,86 +275,81 @@
 
     @if (User.IsInRole("Admin") || User.IsInRole("Kasiyer"))
     {
-    <div class="pay-panel">
-        <div class="pay-head"><div class="pay-title">Ödeme Durumu</div></div>
-        <div class="pay-summary">
-            <div class="pay-row"><span class="pay-label">Adisyon Toplamı</span><span class="pay-value">₺@Model.OrderTotalAmount.ToString("N2")</span></div>
-            @if (totalPaid > 0)
-            {
-                <div class="pay-row"><span class="pay-label">Ödenen</span><span class="pay-value" style="color:#22c55e">₺@totalPaid.ToString("N2")</span></div>
-                <div class="pay-divider"></div>
-                <div class="pay-total-row"><span class="pay-total-label">Kalan</span><span class="pay-remaining">₺@remaining.ToString("N2")</span></div>
-            }
-            else
-            {
-                <div class="pay-divider"></div>
-                <div class="pay-total-row"><span class="pay-total-label">Toplam</span><span class="pay-total-value">₺@Model.OrderTotalAmount.ToString("N2")</span></div>
-            }
-        </div>
-        @if (Model.Payments?.Any() == true)
-        {
-            @foreach (var p in Model.Payments.OrderBy(p => p.PaymentsPaidAt))
-            {
-                <div class="payment-record">
-                    <div class="pr-name">@(string.IsNullOrWhiteSpace(p.PaymentsNote) ? "Ödeme" : p.PaymentsNote)</div>
-                    <span class="pr-method">@PayMethodLabel(p.PaymentsMethod)</span>
-                    <span class="pr-amount">₺@p.PaymentsAmount.ToString("N2")</span>
-                </div>
-            }
-        }
-        <div class="pay-actions">
-            @if (isOpen)
-            {
-                @if (canCloseZero)
+        <div class="pay-panel">
+            <div class="pay-head"><div class="pay-title">Ödeme Durumu</div></div>
+            <div class="pay-summary">
+                <div class="pay-row"><span class="pay-label">Adisyon Toplamı</span><span class="pay-value">₺@Model.OrderTotalAmount.ToString("N2")</span></div>
+                @if (totalPaid > 0)
                 {
-                    @* Tüm ürünler iptal, tutar 0 → özel kapatma akışı *@
-                    <div class="zero-order-banner">
-                        <span class="zero-order-icon">⚠️</span>
-                        <div class="zero-order-text">
-                            <div class="zero-order-title">Ödenecek tutar bulunmuyor</div>
-                            <div class="zero-order-desc">
-                                Adisyondaki tüm ürünler iptal edildi. Masayı ödeme almadan kapatabilirsiniz.
-                            </div>
-                        </div>
-                    </div>
-                    <form asp-controller="Orders" asp-action="CloseZero" method="post">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="orderId" value="@Model.OrderId" />
-                        <button type="submit" class="btn-close-zero"
-                                onclick="return confirm('Adisyon iptal edilmiş sayılacak ve masa boşaltılacak. Devam edilsin mi?')">
-                            ✕ Adisyonu Sonlandır &amp; Masayı Boşalt
-                        </button>
-                    </form>
-                }
-                else if (Model.OrderTotalAmount <= 0.001m && !allItemsCancelled)
-                {
-                    @* Tutar 0 ama hâlâ aktif ürün var — uyarı göster, normal ödeme butonu gizli *@
-                    <div class="zero-order-banner">
-                        <span class="zero-order-icon">ℹ️</span>
-                        <div class="zero-order-text">
-                            <div class="zero-order-title">Tutar sıfır ama aktif ürünler var</div>
-                            <div class="zero-order-desc">
-                                Kapatmadan önce tüm kalemleri iptal edin.
-                            </div>
-                        </div>
-                    </div>
-                    <button class="btn-close-zero" disabled
-                            style="opacity:.45;cursor:not-allowed;transform:none;">
-                        ✕ Adisyonu Sonlandır (aktif ürünler var)
-                    </button>
+                    <div class="pay-row"><span class="pay-label">Ödenen</span><span class="pay-value" style="color:#22c55e">₺@totalPaid.ToString("N2")</span></div>
+                    <div class="pay-divider"></div>
+                    <div class="pay-total-row"><span class="pay-total-label">Kalan</span><span class="pay-remaining">₺@remaining.ToString("N2")</span></div>
                 }
                 else
                 {
-                    @* Normal ödeme akışı *@
-                    <button class="btn-pay" onclick="openModal('payModal')">💳 Ödeme Al</button>
+                    <div class="pay-divider"></div>
+                    <div class="pay-total-row"><span class="pay-total-label">Toplam</span><span class="pay-total-value">₺@Model.OrderTotalAmount.ToString("N2")</span></div>
+                }
+            </div>
+            @if (Model.Payments?.Any() == true)
+            {
+                @foreach (var p in Model.Payments.OrderBy(p => p.PaymentsPaidAt))
+                {
+                    <div class="payment-record">
+                        <div class="pr-name">@(string.IsNullOrWhiteSpace(p.PaymentsNote) ? "Ödeme" : p.PaymentsNote)</div>
+                        <span class="pr-method">@PayMethodLabel(p.PaymentsMethod)</span>
+                        <span class="pr-amount">₺@p.PaymentsAmount.ToString("N2")</span>
+                    </div>
                 }
             }
-            else
-            {
-                <div style="text-align:center;padding:10px;color:#22c55e;font-weight:700;font-size:14px">✅ Adisyon Kapatıldı</div>
-            }
+            <div class="pay-actions">
+                @if (isOpen)
+                {
+                    @if (canCloseZero)
+                    {
+                        @* Tüm ürünler iptal, tutar 0 → özel kapatma akışı *@
+                        <div class="zero-order-banner">
+                            <span class="zero-order-icon">⚠️</span>
+                            <div class="zero-order-text">
+                                <div class="zero-order-title">Ödenecek tutar bulunmuyor</div>
+                                <div class="zero-order-desc">
+                                    Adisyondaki tüm ürünler iptal edildi. Masayı ödeme almadan kapatabilirsiniz.
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close-zero" onclick="submitCloseZero()">
+                            ✕ Adisyonu Sonlandır &amp; Masayı Boşalt
+                        </button>
+                    }
+                    else if (Model.OrderTotalAmount <= 0.001m && !allItemsCancelled)
+                    {
+                        @* Tutar 0 ama hâlâ aktif ürün var — uyarı göster, normal ödeme butonu gizli *@
+                        <div class="zero-order-banner">
+                            <span class="zero-order-icon">ℹ️</span>
+                            <div class="zero-order-text">
+                                <div class="zero-order-title">Tutar sıfır ama aktif ürünler var</div>
+                                <div class="zero-order-desc">
+                                    Kapatmadan önce tüm kalemleri iptal edin.
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn-close-zero" disabled
+                                style="opacity:.45;cursor:not-allowed;transform:none;">
+                            ✕ Adisyonu Sonlandır (aktif ürünler var)
+                        </button>
+                    }
+                    else
+                    {
+                        @* Normal ödeme akışı *@
+                        <button class="btn-pay" onclick="openModal('payModal')">💳 Ödeme Al</button>
+                    }
+                }
+                else
+                {
+                    <div style="text-align:center;padding:10px;color:#22c55e;font-weight:700;font-size:14px">✅ Adisyon Kapatıldı</div>
+                }
+            </div>
         </div>
-    </div>
 
     }
 
@@ -516,12 +505,9 @@
             </div>
         </div>
 
-        <form asp-controller="Orders" asp-action="CancelItem" method="post" id="cimForm">
+        <div id="cimForm">
             @Html.AntiForgeryToken()
-            <input type="hidden" name="orderId" value="@Model.OrderId" />
-            <input type="hidden" name="orderItemId" id="cimItemId" />
-            <input type="hidden" name="cancelQty" id="cimQtyHidden" value="1" />
-            <input type="hidden" name="isWasted" id="cimIsWastedHidden" value="false" />
+            <input type="hidden" id="cimIsWastedHidden" value="false" />
 
             @* Adet *@
             <div class="cim-field">
@@ -575,11 +561,12 @@
                         onclick="closeModal('cancelItemModal')">
                     Vazgeç
                 </button>
-                <button type="submit" class="cim-btn-confirm" id="cimConfirmBtn">
+                <button type="button" class="cim-btn-confirm" id="cimConfirmBtn"
+                        onclick="submitCancelItem()">
                     ✕ İptal Et
                 </button>
             </div>
-        </form>
+        </div>
     </div>
 </div>
 
@@ -640,17 +627,15 @@
                     <div class="pm-sum-row"><span style="font-weight:700">Kalan</span><span class="pm-sum-total" id="pm-remaining">₺@remaining.ToString("N2")</span></div>
                 </div>
 
-                <form asp-controller="Orders" asp-action="AddPayment" method="post" onsubmit="return syncPayForm()" id="payForm">
+                @* payForm artık fetch gönderir — hidden inputlara gerek yok *@
+                <div id="payForm">
                     @Html.AntiForgeryToken()
-                    <input type="hidden" name="orderId" value="@Model.OrderId" />
-                    <input type="hidden" name="paymentMethod" id="selectedMethod" value="cash" />
-                    <input type="hidden" name="paymentAmountStr" id="paymentAmountStr" />
-                    <input type="hidden" name="discountAmountStr" id="discountAmountStr" />
-                    <div id="piselHiddenInputs"></div>
+                    @* selectedMethod JS state için korunuyor *@
+                    <input type="hidden" id="selectedMethod" value="cash" />
 
                     <div class="form-group">
                         <label class="form-label">Ödeyen (opsiyonel)</label>
-                        <input class="form-control" name="payerName" placeholder="Ali Yılmaz" maxlength="100" />
+                        <input class="form-control" id="payerNameInput" placeholder="Ali Yılmaz" maxlength="100" />
                     </div>
 
                     <div class="form-group">
@@ -686,14 +671,14 @@
                         <label class="form-label">Para Üstü</label>
                         <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#22c55e;padding:4px 0" id="changeDisplay">₺0,00</div>
                     </div>
-                </form>
+                </div>
             </div>
 
         </div>
 
         <div class="pay-modal-actions">
             <button type="button" class="btn-ghost" onclick="closeModal('payModal')">İptal</button>
-            <button type="button" class="btn-primary" onclick="document.getElementById('payForm').requestSubmit()">💾 Ödemeyi Kaydet</button>
+            <button type="button" class="btn-primary" onclick="submitPayment()">💾 Ödemeyi Kaydet</button>
         </div>
     </div>
 </div>

@@ -1,4 +1,4 @@
-﻿namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Dtos;
+﻿namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Dtos.Orders;
 
 public class BulkAddDto
 {
