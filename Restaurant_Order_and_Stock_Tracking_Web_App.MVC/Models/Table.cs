@@ -13,7 +13,12 @@
         public int? ReservationGuestCount { get; set; }
         public DateTime? ReservationTime { get; set; }
 
-        public virtual ICollection<Order> Orders { get; set; }
+        /// <summary>
+        /// Müşteri "Garson Çağır"a bastığında true olur.
+        /// Garson "İlgilenildi" dediğinde false'a döner.
+        /// </summary>
+        public bool IsWaiterCalled { get; set; } = false;
 
+        public virtual ICollection<Order> Orders { get; set; }
     }
 }

@@ -1,6 +1,6 @@
 ﻿document.addEventListener("DOMContentLoaded", () => {
 
-    // ── 1. C# Verilerini HTML'den (JSON Adacığından) Oku ──
+    // ── 1. JSON Data Island'dan C# Verilerini Oku ──
     const configEl = document.getElementById('orderConfigData');
     let config = { orderTotal: 0, alreadyPaid: 0, orderId: 0 };
 
@@ -13,6 +13,33 @@
     const orderId = parseInt(config.orderId);
     let currentMethod = 'cash';
 
+    // ── CSRF Token ──────────────────────────────────────────────
+    function getToken() {
+        return document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+    }
+
+    // ── Fetch Yardımcısı ─────────────────────────────────────────
+    async function postJson(url, payload) {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': getToken()
+            },
+            body: JSON.stringify(payload)
+        });
+
+        // Oturum sona erdi kontrolü
+        const ct = res.headers.get('content-type') || '';
+        if (res.status === 401 || (!ct.includes('application/json') && !res.ok)) {
+            alert('Oturumunuz sona erdi. Giriş sayfasına yönlendiriliyorsunuz.');
+            window.location.href = '/Auth/Login';
+            throw new Error('Unauthorized');
+        }
+
+        return res.json();
+    }
+
     // ── helpers ──────────────────────────────────────────────────
     function parseLD(str) {
         if (!str) return 0;
@@ -21,7 +48,7 @@
     }
     function fmt(n) { return '₺' + n.toFixed(2).replace('.', ','); }
 
-    // ── modal (HTML'den ulaşılabilmesi için window'a ekliyoruz) ──
+    // ── modal ────────────────────────────────────────────────────
     window.openModal = function (id) { document.getElementById(id).classList.add('open'); };
     window.closeModal = function (id) { document.getElementById(id).classList.remove('open'); };
 
@@ -30,16 +57,39 @@
     });
 
     // ═══════════════════════════════════════════════════════════
-    // AIM — Çoklu Ürün Ekleme (Mini Sepet Mantığı)
+    // DURUM GÜNCELLEME — UpdateItemStatus
+    // ═══════════════════════════════════════════════════════════
+    // View'daki submit butonlarına tıklandığında bu fonksiyon çağrılır.
+    // View'da form submit="return false" yerine onclick="updateStatus(...)" kullanılır.
+    window.updateItemStatus = async function (orderItemId, newStatus) {
+        try {
+            const data = await postJson('/Orders/UpdateItemStatus', {
+                orderItemId,
+                newStatus,
+                orderId
+            });
+
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Hata: ' + (data.message || 'Bilinmeyen hata'));
+            }
+        } catch (e) {
+            if (e.message !== 'Unauthorized')
+                alert('İstek gönderilemedi.');
+        }
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    // AIM — Çoklu Ürün Ekleme (Mini Sepet) — mevcut mantık korundu
     // ═══════════════════════════════════════════════════════════
     let aimPrice = 0;
     let aimQty = 1;
-    let aimCurId = null;   // seçili ürün id
+    let aimCurId = null;
     let aimCurName = '';
     let aimCatActive = 'all';
     let aimBasket = [];
 
-    // ── Ürün seç ──
     window.aimPick = function (id) {
         const row = document.getElementById('arow-' + id);
         if (!row) return;
@@ -74,7 +124,6 @@
             '+ Sepete Ekle (' + aimQty + ' adet — ' + fmt(aimPrice * aimQty) + ')';
     }
 
-    // ── Sepete ekle ──
     window.aimAddToBasket = function () {
         if (!aimCurId) return;
         const note = (document.getElementById('aimNoteInp').value || '').trim();
@@ -99,7 +148,6 @@
         document.getElementById('aimBasketWrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     };
 
-    // ── Sepet render ──
     function aimRenderBasket() {
         const list = document.getElementById('aimBasketList');
         const empty = document.getElementById('aimBasketEmpty');
@@ -158,7 +206,7 @@
         aimRenderBasket();
     };
 
-    // ── Tümünü gönder (Bulk) ──
+    // ── Tümünü gönder (Bulk) — AddItemBulk ──
     window.aimSendAll = async function () {
         if (!aimBasket.length) return;
 
@@ -166,8 +214,9 @@
         btn.disabled = true;
         btn.textContent = '⏳ Gönderiliyor...';
 
+        // BulkAddDto ile eşleşen payload
         const payload = {
-            orderId: orderId, // JSON'dan gelen değer
+            orderId,
             items: aimBasket.map(i => ({
                 menuItemId: i.id,
                 quantity: i.qty,
@@ -175,40 +224,23 @@
             }))
         };
 
-        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
-
         try {
-            const res = await fetch('/Orders/AddItemBulk', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': token
-                },
-                body: JSON.stringify(payload)
-            });
+            const data = await postJson('/Orders/AddItemBulk', payload);
 
-            // Oturum düştüyse sunucu HTML login sayfasına yönlendirir (302→200)
-            // Content-Type kontrolüyle bunu yakala ve sayfayı yenile
-            const ct = res.headers.get('content-type') || '';
-            if (res.status === 401 || (!ct.includes('application/json') && !res.ok)) {
-                alert('Oturumunuz sona erdi. Giriş sayfasına yönlendiriliyorsunuz.');
-                window.location.href = '/Auth/Login';
-                return;
-            }
-
-            if (res.ok) {
+            if (data.success) {
                 window.closeModal('addItemModal');
                 location.reload();
             } else {
-                const data = await res.json().catch(() => ({}));
                 btn.disabled = false;
                 btn.textContent = '✓ Tümünü Adisyona Gönder';
-                alert('Hata: ' + (data.error || 'Bilinmeyen hata'));
+                alert('Hata: ' + (data.message || 'Bilinmeyen hata'));
             }
         } catch (e) {
-            btn.disabled = false;
-            btn.textContent = '✓ Tümünü Adisyona Gönder';
-            alert('İstek gönderilemedi. Lütfen sayfayı yenileyip tekrar deneyin.');
+            if (e.message !== 'Unauthorized') {
+                btn.disabled = false;
+                btn.textContent = '✓ Tümünü Adisyona Gönder';
+                alert('İstek gönderilemedi. Lütfen sayfayı yenileyip tekrar deneyin.');
+            }
         }
     };
 
@@ -270,7 +302,7 @@
     };
 
     // ═══════════════════════════════════════════════════════════
-    // ÖDEME MODAL: kalem seçimi
+    // ÖDEME MODAL: kalem seçimi (piselState)
     // ═══════════════════════════════════════════════════════════
     const piselState = {};
     document.querySelectorAll('.pisel-row').forEach(row => {
@@ -313,7 +345,7 @@
         window.updateChange();
     };
 
-    // ── ödeme formu ──
+    // ── Ödeme formu helpers ──
     window.selectMethod = function (btn, method) {
         document.querySelectorAll('.method-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
@@ -359,48 +391,99 @@
         document.getElementById('changeDisplay').textContent = fmt(change);
     };
 
-    window.syncPayForm = function () {
+    // ── Ödeme gönder — AddPayment ──
+    window.submitPayment = async function () {
         const payVal = parseLD(document.getElementById('payAmountDisplay').value);
         const discVal = parseLD(document.getElementById('discountDisplay').value);
         const err = document.getElementById('err-amount');
-        if (payVal <= 0) { err.style.display = 'block'; return false; }
-        err.style.display = 'none';
-        document.getElementById('paymentAmountStr').value = payVal.toFixed(2);
-        document.getElementById('discountAmountStr').value = discVal.toFixed(2);
 
-        const c = document.getElementById('piselHiddenInputs');
-        c.innerHTML = '';
-        Object.entries(piselState).forEach(([id, s]) => {
-            if (s.selected > 0) {
-                c.innerHTML += `<input type="hidden" name="paidItemIds"  value="${id}">` +
-                    `<input type="hidden" name="paidItemQtys" value="${s.selected}">`;
+        if (payVal <= 0) { err.style.display = 'block'; return; }
+        err.style.display = 'none';
+
+        const payerName = document.getElementById('payerNameInput')?.value || '';
+        const method = document.getElementById('selectedMethod').value;
+
+        // piselState'den seçilen kalemleri nesne listesine çevir
+        const paidItems = Object.entries(piselState)
+            .filter(([, s]) => s.selected > 0)
+            .map(([id, s]) => ({ orderItemId: parseInt(id), quantity: s.selected }));
+
+        // OrderPaymentDto ile eşleşen payload
+        const payload = {
+            orderId,
+            payerName: payerName.trim() || null,
+            paymentMethod: method,
+            paymentAmount: payVal,
+            discountAmount: discVal,
+            paidItems: paidItems.length > 0 ? paidItems : null
+        };
+
+        const submitBtn = document.querySelector('.pay-modal-actions .btn-primary');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '⏳ Kaydediliyor...'; }
+
+        try {
+            const data = await postJson('/Orders/AddPayment', payload);
+
+            if (data.success) {
+                if (data.redirectUrl) {
+                    window.location.href = data.redirectUrl;
+                } else {
+                    window.closeModal('payModal');
+                    location.reload();
+                }
+            } else {
+                alert('Hata: ' + (data.message || 'Bilinmeyen hata'));
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '💾 Ödemeyi Kaydet'; }
             }
-        });
-        return true;
+        } catch (e) {
+            if (e.message !== 'Unauthorized') {
+                alert('İstek gönderilemedi.');
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '💾 Ödemeyi Kaydet'; }
+            }
+        }
+    };
+
+    // ── Adisyon Kapat (CloseZero) ──
+    window.submitCloseZero = async function () {
+        if (!confirm('Adisyon iptal edilmiş sayılacak ve masa boşaltılacak. Devam edilsin mi?')) return;
+
+        // OrderCloseDto ile eşleşen payload (sadece orderId yeterli)
+        const payload = { orderId, paymentMethod: 'cash', paymentAmount: 0 };
+
+        try {
+            const data = await postJson('/Orders/CloseZero', payload);
+
+            if (data.success) {
+                window.location.href = data.redirectUrl;
+            } else {
+                alert('Hata: ' + (data.message || 'Bilinmeyen hata'));
+            }
+        } catch (e) {
+            if (e.message !== 'Unauthorized')
+                alert('İstek gönderilemedi.');
+        }
     };
 
     // ═══════════════════════════════════════════════════════════
-    // İPTAL MODAL — JS
+    // İPTAL MODAL — CancelItem
     // ═══════════════════════════════════════════════════════════
     let cimMaxQty = 1;
     let cimUnitPrice = 0;
     let cimQty = 1;
     let cimTracksStock = false;
+    let cimCurrentItemId = null;
 
     window.openCancelModal = function (itemId, name, unitPrice, maxQty, tracksStock) {
+        cimCurrentItemId = itemId;
         cimMaxQty = maxQty;
         cimUnitPrice = unitPrice;
         cimTracksStock = tracksStock;
         cimQty = 1;
 
-        document.getElementById('cimItemId').value = itemId;
         document.getElementById('cimProductName').textContent = name;
-        document.getElementById('cimQtyHidden').value = 1;
         document.getElementById('cimReason').value = '';
         document.getElementById('cimQtyMax').textContent = '(maks. ' + maxQty + ')';
-
         document.getElementById('cimWasteField').style.display = tracksStock ? '' : 'none';
-        document.getElementById('cimIsWastedHidden').value = 'false';
 
         document.querySelectorAll('#cancelItemModal input[type="radio"]')
             .forEach(r => r.checked = r.value === 'false');
@@ -416,14 +499,49 @@
 
     function cimRefresh() {
         document.getElementById('cimQtyNum').textContent = cimQty;
-        document.getElementById('cimQtyHidden').value = cimQty;
         document.getElementById('cimRefundAmt').textContent = fmt(cimUnitPrice * cimQty);
         document.getElementById('cimConfirmBtn').textContent =
             '✕ ' + cimQty + ' Adet İptal Et (−' + fmt(cimUnitPrice * cimQty) + ')';
     }
 
     window.cimWasteChange = function (isWasted) {
+        // değer radio'dan okunur, sadece işaret için state tutulabilir
         document.getElementById('cimIsWastedHidden').value = isWasted ? 'true' : 'false';
+    };
+
+    // ── İptal onayla — CancelItem ──
+    window.submitCancelItem = async function () {
+        const cancelReason = document.getElementById('cimReason').value.trim() || null;
+        const isWastedVal = document.getElementById('cimIsWastedHidden').value === 'true';
+
+        // OrderItemCancelDto ile eşleşen payload
+        const payload = {
+            orderItemId: cimCurrentItemId,
+            orderId,
+            cancelQty: cimQty,
+            cancelReason,
+            isWasted: cimTracksStock ? isWastedVal : null
+        };
+
+        const confirmBtn = document.getElementById('cimConfirmBtn');
+        confirmBtn.disabled = true;
+
+        try {
+            const data = await postJson('/Orders/CancelItem', payload);
+
+            if (data.success) {
+                window.closeModal('cancelItemModal');
+                location.reload();
+            } else {
+                alert('Hata: ' + (data.message || 'Bilinmeyen hata'));
+                confirmBtn.disabled = false;
+            }
+        } catch (e) {
+            if (e.message !== 'Unauthorized') {
+                alert('İstek gönderilemedi.');
+                confirmBtn.disabled = false;
+            }
+        }
     };
 
     // Uyarıları gizleme

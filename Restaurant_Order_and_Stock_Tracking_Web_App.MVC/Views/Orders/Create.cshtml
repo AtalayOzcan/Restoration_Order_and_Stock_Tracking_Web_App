@@ -8,130 +8,129 @@
 @section Styles {
     <link href="~/css/Views/Orders/create.css" rel="stylesheet" asp-append-version="true" />
 }
-@if (TempData["Error"] != null)
-{
-    <div class="pos-alert">❌ @TempData["Error"]</div>
-}
 
-<form id="orderForm" asp-controller="Orders" asp-action="Create" method="post"
-      onsubmit="return validateOrder()">
-    @Html.AntiForgeryToken()
-    <input type="hidden" name="tableId" value="@table.TableId" />
-    <div id="hiddenInputs"></div>
+@* JSON Data Island — JS tarafında tableId'yi buradan okur *@
+<script type="application/json" id="createPageData">
+    {
+        "tableId": @table.TableId
+    }
+</script>
 
-    <div class="pos-wrap">
+@* AntiForgery token — form submit olmasa bile fetch için gerekli *@
+@Html.AntiForgeryToken()
 
-        @* ══ SOL — Menü ══ *@
-        <div class="pos-menu">
+<div class="pos-wrap">
 
-            @* Üst bar *@
-            <div class="pos-header">
-                <span class="pos-table-chip">🪑 @table.TableName</span>
-                <div class="pos-search-wrap">
-                    <span class="pos-search-icon">🔍</span>
-                    <input type="text" id="searchInput" placeholder="Ürün ara..."
-                           oninput="doSearch(this.value)"
-                           autocomplete="off" />
-                </div>
-                <a asp-controller="Tables" asp-action="Index" class="pos-back">← Masalar</a>
+    @* ══ SOL — Menü ══ *@
+    <div class="pos-menu">
+
+        @* Üst bar *@
+        <div class="pos-header">
+            <span class="pos-table-chip">🪑 @table.TableName</span>
+            <div class="pos-search-wrap">
+                <span class="pos-search-icon">🔍</span>
+                <input type="text" id="searchInput" placeholder="Ürün ara..."
+                       oninput="doSearch(this.value)"
+                       autocomplete="off" />
             </div>
+            <a asp-controller="Tables" asp-action="Index" class="pos-back">← Masalar</a>
+        </div>
 
-            @* Kategori şeridi *@
-            <div class="cat-strip">
-                <button type="button" class="cat-btn active"
-                        data-cat="all" onclick="filterCat('all',this)">
-                    Tümü
-                    <span class="cat-btn-n">@allItems.Count</span>
+        @* Kategori şeridi *@
+        <div class="cat-strip">
+            <button type="button" class="cat-btn active"
+                    data-cat="all" onclick="filterCat('all',this)">
+                Tümü
+                <span class="cat-btn-n">@allItems.Count</span>
+            </button>
+            @foreach (var cat in categories)
+            {
+                <button type="button" class="cat-btn"
+                        data-cat="cat-@cat.CategoryId"
+                        onclick="filterCat('cat-@cat.CategoryId',this)">
+                    @cat.CategoryName
+                    <span class="cat-btn-n">@cat.MenuItems.Count</span>
                 </button>
-                @foreach (var cat in categories)
-                {
-                    <button type="button" class="cat-btn"
-                            data-cat="cat-@cat.CategoryId"
-                            onclick="filterCat('cat-@cat.CategoryId',this)">
-                        @cat.CategoryName
-                        <span class="cat-btn-n">@cat.MenuItems.Count</span>
-                    </button>
-                }
-            </div>
+            }
+        </div>
 
-            @* Ürünler *@
-            <div class="pos-items" id="posItems">
-                <div class="search-result-label" id="searchLabel"></div>
+        @* Ürünler *@
+        <div class="pos-items" id="posItems">
+            <div class="search-result-label" id="searchLabel"></div>
 
-                @foreach (var cat in categories)
-                {
-                    <div class="cat-block" id="cat-@cat.CategoryId">
-                        <div class="cat-block-title">@cat.CategoryName</div>
-                        <div class="items-grid">
-                            @foreach (var mi in cat.MenuItems)
-                            {
-                                <div class="item-card"
-                                     id="icard-@mi.MenuItemId"
-                                     data-id="@mi.MenuItemId"
-                                     data-name="@Html.Raw(mi.MenuItemName.Replace("\"", "&quot;").Replace("'", "&#39;"))"
-                                     data-price="@mi.MenuItemPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
-                                     data-cat="cat-@cat.CategoryId"
-                                     data-keywords="@mi.MenuItemName.ToLower()"
-                                     onclick="addItem(@mi.MenuItemId)">
-                                    <div class="item-name">@mi.MenuItemName</div>
-                                    <div class="item-price">₺@mi.MenuItemPrice.ToString("N2")</div>
-                                    <div class="item-qty-badge" id="badge-@mi.MenuItemId"></div>
-                                </div>
-                            }
-                        </div>
+            @foreach (var cat in categories)
+            {
+                <div class="cat-block" id="cat-@cat.CategoryId">
+                    <div class="cat-block-title">@cat.CategoryName</div>
+                    <div class="items-grid">
+                        @foreach (var mi in cat.MenuItems)
+                        {
+                            <div class="item-card"
+                                 id="icard-@mi.MenuItemId"
+                                 data-id="@mi.MenuItemId"
+                                 data-name="@Html.Raw(mi.MenuItemName.Replace("\"", "&quot;").Replace("'", "&#39;"))"
+                                 data-price="@mi.MenuItemPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
+                                 data-cat="cat-@cat.CategoryId"
+                                 data-keywords="@mi.MenuItemName.ToLower()"
+                                 onclick="addItem(@mi.MenuItemId)">
+                                <div class="item-name">@mi.MenuItemName</div>
+                                <div class="item-price">₺@mi.MenuItemPrice.ToString("N2")</div>
+                                <div class="item-qty-badge" id="badge-@mi.MenuItemId"></div>
+                            </div>
+                        }
                     </div>
-                }
-
-                <div class="items-empty" id="itemsEmpty">
-                    <div class="items-empty-icon">🔍</div>
-                    Ürün bulunamadı.
                 </div>
-            </div>
+            }
 
+            <div class="items-empty" id="itemsEmpty">
+                <div class="items-empty-icon">🔍</div>
+                Ürün bulunamadı.
+            </div>
         </div>
 
-        @* ══ SAĞ — Sepet ══ *@
-        <div class="pos-cart">
-
-            <div class="cart-head">
-                <div class="cart-head-row">
-                    <span class="cart-title">
-                        Adisyon
-                        <span class="cart-count" id="cartCount">0</span>
-                    </span>
-                </div>
-                <div class="cart-sub">@table.TableName · @table.TableCapacity kişilik</div>
-            </div>
-
-            <div class="cart-fields">
-                <div class="f-group">
-                    <label class="f-label">Masa Notu</label>
-                    <input class="f-input" name="orderNote"
-                           placeholder="Doğum günü, özel istek..." maxlength="300" />
-                </div>
-            </div>
-
-            <div class="cart-items" id="cartItems">
-                <div class="cart-empty" id="cartEmpty">
-                    <span class="cart-empty-icon">🛒</span>
-                    Henüz ürün eklenmedi.<br>
-                    <small style="font-size:12px;opacity:.7">Soldan bir ürüne tıklayın.</small>
-                </div>
-            </div>
-
-            <div class="cart-foot">
-                <div class="cart-total-row">
-                    <span class="cart-total-lbl">Toplam</span>
-                    <span class="cart-total-val" id="cartTotal">₺0,00</span>
-                </div>
-                <button type="submit" class="btn-open" id="btnOpen" disabled>
-                    ✓ &nbsp;Adisyonu Aç
-                </button>
-            </div>
-
-        </div>
     </div>
-</form>
+
+    @* ══ SAĞ — Sepet ══ *@
+    <div class="pos-cart">
+
+        <div class="cart-head">
+            <div class="cart-head-row">
+                <span class="cart-title">
+                    Adisyon
+                    <span class="cart-count" id="cartCount">0</span>
+                </span>
+            </div>
+            <div class="cart-sub">@table.TableName · @table.TableCapacity kişilik</div>
+        </div>
+
+        <div class="cart-fields">
+            <div class="f-group">
+                <label class="f-label">Masa Notu</label>
+                <input class="f-input" id="orderNoteInput"
+                       placeholder="Doğum günü, özel istek..." maxlength="300" />
+            </div>
+        </div>
+
+        <div class="cart-items" id="cartItems">
+            <div class="cart-empty" id="cartEmpty">
+                <span class="cart-empty-icon">🛒</span>
+                Henüz ürün eklenmedi.<br>
+                <small style="font-size:12px;opacity:.7">Soldan bir ürüne tıklayın.</small>
+            </div>
+        </div>
+
+        <div class="cart-foot">
+            <div class="cart-total-row">
+                <span class="cart-total-lbl">Toplam</span>
+                <span class="cart-total-val" id="cartTotal">₺0,00</span>
+            </div>
+            <button type="button" class="btn-open" id="btnOpen" disabled onclick="submitOrder()">
+                ✓ &nbsp;Adisyonu Aç
+            </button>
+        </div>
+
+    </div>
+</div>
 
 @section Scripts {
     <script src="~/js/Views/Orders/Create.js" asp-append-version="true"></script>

@@ -135,7 +135,7 @@
            placeholder="🔍 Ürün adı veya SKU ara…"
            oninput="StockFilter.apply()" />
 
-    <select id="catFilter" class="filter-input" onchange="StockFilter.apply()">
+    <select id="catFilter" class="filter-input" onchange="StockFilter.apply()" ">
         <option value="">Tüm Kategoriler</option>
         @foreach (var cat in categories)
         {
@@ -143,7 +143,7 @@
         }
     </select>
 
-    <select id="statusFilter" class="filter-input" onchange="StockFilter.apply()">
+    <select id="statusFilter" class="filter-input" onchange="StockFilter.apply()" ">
         <option value="">Tüm Durumlar</option>
         <option value="OK">✓ Yeterli</option>
         <option value="Low">⚡ Düşük</option>
@@ -157,13 +157,13 @@
     @if (showAll)
     {
         <a href="/Stock" class="btn btn-toggle-all btn-sm">
-            📊 Yalnızca Takiptekileri Göster
+            👁 Takip Dışı Ürünleri de Göster
         </a>
     }
     else
     {
         <a href="/Stock?showAll=true" class="btn btn-toggle-all btn-sm">
-            👁 Takip Dışı Ürünleri de Göster
+             📊 Yalnızca Takiptekileri Göster
         </a>
     }
 

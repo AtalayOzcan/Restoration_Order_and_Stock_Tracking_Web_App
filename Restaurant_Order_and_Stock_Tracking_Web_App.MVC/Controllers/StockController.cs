@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data;
+using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Dtos.Stock;
 using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models;
 
 namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
@@ -17,7 +18,6 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
         }
 
         // ── GET: /Stock ──────────────────────────────────────────────
-        // Madde 1: Varsayılan olarak sadece TrackStock=true ürünler gelir.
         public async Task<IActionResult> Index(bool showAll = false)
         {
             ViewData["Title"] = "Stok Yönetimi";
@@ -30,12 +30,10 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
                 .ThenBy(m => m.MenuItemName)
                 .ToListAsync();
 
-            // Madde 1: varsayılan filtre
             var displayItems = showAll
                 ? allItems
                 : allItems.Where(m => m.TrackStock).ToList();
 
-            // Madde 4: istatistikler tüm ürünler üzerinden
             int totalProducts = allItems.Count;
             int trackedProducts = allItems.Count(m => m.TrackStock);
             int lowStockCount = allItems.Count(m => IsLow(m));
@@ -81,7 +79,6 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
             );
             ViewData["LastUpdatedMap"] = lastUpdatedMap;
 
-            // Madde 5: Son 30 gün tüketimi (OrderItems üzerinden)
             var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
             var consumed = await _context.OrderItems
                 .Where(oi =>
@@ -97,20 +94,13 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
             return View(displayItems);
         }
 
-        // ── POST: /Stock/UpdateStock  (AJAX JSON) ────────────────────
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateStock(
-            int menuItemId,
-            string updateMode,
-            int? newStockValue,
-            string? movementDirection,
-            int? movementQuantity,
-            string? note,
-            int? alertThreshold,
-            int? criticalThreshold)
+        // ── POST: /Stock/UpdateStock ─────────────────────────────────
+        // Eski: çok sayıda ayrı parametre (menuItemId, updateMode, newStockValue, ...)
+        // Yeni: tek [FromBody] StockUpdateDto
+        [HttpPost, ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateStock([FromBody] StockUpdateDto dto)
         {
-            var item = await _context.MenuItems.FindAsync(menuItemId);
+            var item = await _context.MenuItems.FindAsync(dto.MenuItemId);
             if (item == null)
                 return Json(new { success = false, message = "Ürün bulunamadı." });
 
@@ -119,31 +109,43 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
             string movementType;
             int quantityChange;
 
-            if (updateMode == "direct")
+            if (dto.UpdateMode == "direct")
             {
-                if (newStockValue == null || newStockValue < 0)
+                if (dto.NewStockValue == null || dto.NewStockValue < 0)
                     return Json(new { success = false, message = "Geçerli bir stok değeri giriniz." });
-                newStock = newStockValue.Value;
+
+                newStock = dto.NewStockValue.Value;
                 quantityChange = newStock - previousStock;
                 movementType = "Düzeltme";
             }
             else
             {
-                if (movementQuantity == null || movementQuantity <= 0)
+                if (dto.MovementQuantity == null || dto.MovementQuantity <= 0)
                     return Json(new { success = false, message = "Geçerli bir miktar giriniz." });
-                if (string.IsNullOrWhiteSpace(note))
+
+                if (string.IsNullOrWhiteSpace(dto.Note))
                     return Json(new { success = false, message = "Hareket bazlı işlem için açıklama zorunludur." });
 
-                if (movementDirection == "in") { quantityChange = movementQuantity.Value; movementType = "Giriş"; }
-                else { quantityChange = -movementQuantity.Value; movementType = "Çıkış"; }
+                if (dto.MovementDirection == "in")
+                {
+                    quantityChange = dto.MovementQuantity.Value;
+                    movementType = "Giriş";
+                }
+                else
+                {
+                    quantityChange = -dto.MovementQuantity.Value;
+                    movementType = "Çıkış";
+                }
 
                 newStock = previousStock + quantityChange;
                 if (newStock < 0)
                     return Json(new { success = false, message = "Stok miktarı sıfırın altına düşemez." });
             }
 
-            if (alertThreshold.HasValue && alertThreshold.Value >= 0) item.AlertThreshold = alertThreshold.Value;
-            if (criticalThreshold.HasValue && criticalThreshold.Value >= 0) item.CriticalThreshold = criticalThreshold.Value;
+            if (dto.AlertThreshold.HasValue && dto.AlertThreshold.Value >= 0)
+                item.AlertThreshold = dto.AlertThreshold.Value;
+            if (dto.CriticalThreshold.HasValue && dto.CriticalThreshold.Value >= 0)
+                item.CriticalThreshold = dto.CriticalThreshold.Value;
 
             item.StockQuantity = newStock;
 
@@ -154,7 +156,7 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
                 QuantityChange = quantityChange,
                 PreviousStock = previousStock,
                 NewStock = newStock,
-                Note = note?.Trim(),
+                Note = dto.Note?.Trim(),
                 CreatedAt = DateTime.UtcNow
             });
 
@@ -173,7 +175,7 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
             });
         }
 
-        // ── GET: /Stock/GetHistory/5 ──────────────────────────────────
+        // ── GET: /Stock/GetHistory/5 ─────────────────────────────────
         [HttpGet]
         public async Task<IActionResult> GetHistory(int id)
         {
@@ -201,15 +203,16 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
         }
 
         // ── POST: /Stock/ToggleTrack ──────────────────────────────────
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ToggleTrack(int menuItemId, bool trackStock)
+        // Eski: int menuItemId, bool trackStock — düz parametre
+        // Yeni: [FromBody] StockToggleTrackDto
+        [HttpPost, ValidateAntiForgeryToken]
+        public async Task<IActionResult> ToggleTrack([FromBody] StockToggleTrackDto dto)
         {
-            var item = await _context.MenuItems.FindAsync(menuItemId);
+            var item = await _context.MenuItems.FindAsync(dto.MenuItemId);
             if (item == null)
                 return Json(new { success = false, message = "Ürün bulunamadı." });
 
-            item.TrackStock = trackStock;
+            item.TrackStock = dto.TrackStock;
             await _context.SaveChangesAsync();
 
             return Json(new
@@ -224,7 +227,6 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
         }
 
         // ── Private helpers ───────────────────────────────────────────
-        // Madde 3: İkili eşik — CriticalThreshold kullanır
         private static bool IsCritical(MenuItem m) =>
             m.TrackStock && m.CriticalThreshold > 0 && m.StockQuantity <= m.CriticalThreshold;
 

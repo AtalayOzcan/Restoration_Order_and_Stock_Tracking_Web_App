@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data;
+using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Hubs;
 using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Models;
 using Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Services;
 
@@ -59,6 +60,10 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC
 
             // ── MVC ──────────────────────────────────────────────────────
             builder.Services.AddControllersWithViews();
+            // ── SignalR ──────────────────────────────────────────────────
+            // YENİ: SignalR servisini DI container'a kaydet
+            builder.Services.AddSignalR();
+
 
             var app = builder.Build();
 
@@ -79,6 +84,9 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC
                 name: "default",
                 pattern: "{controller=Home}/{action=Index}/{id?}")
                 .WithStaticAssets();
+            // ── SignalR Hub Endpoint ─────────────────────────────────────
+            // YENİ: Hub'ı "/hubs/restaurant" path'ine bağla
+            app.MapHub<RestaurantHub>("/hubs/restaurant");
 
             // ── Rol Seed: Uygulama başlarken Admin/Garson/Kasiyer rollerini garantile ──
             // Rol yoksa oluşturur; varsa dokunmaz. Her deploy'da güvenle çalışır.

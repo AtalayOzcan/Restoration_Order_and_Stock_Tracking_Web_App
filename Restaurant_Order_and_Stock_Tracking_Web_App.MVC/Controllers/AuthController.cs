@@ -88,8 +88,15 @@ public class AuthController : Controller
                     return Redirect(returnUrl);
                 return RedirectToAction("Index", "Home");
             }
+            else if (roles.Contains("Kasiyer"))
+            {
+                
+                return RedirectToAction("Index","Orders");
+            }
 
-            return RedirectToAction("Index", "Tables");
+            // Güvenlik: Hiçbirine uymuyorsa yetkisiz erişim sayfasına veya ana sayfaya at
+            return RedirectToAction("AccessDenied", "Auth");
+            //return RedirectToAction("Index", "Tables");
         }
 
         ModelState.AddModelError(string.Empty, "Kullanıcı adı veya şifre hatalı.");

@@ -31,7 +31,10 @@
             <button class="filter-btn" data-filter="occupied">Dolu</button>
             <button class="filter-btn" data-filter="reserved">Rezerve</button>
         </div>
+        @if (User.IsInRole("Admin"))
+{
         <button class="btn-add" onclick="openModal('addModal')">＋ Masa Ekle</button>
+}
     </div>
 </div>
 
@@ -72,12 +75,18 @@ else
             var itemCount    = mergedItems?.Count ?? 0;
             var showLimit    = 5;
 
-            <div class="table-card @sc @(warningSoon ? "warning-soon" : "")"
-                 data-status="@sc"
-                 data-table-id="@table.TableId"
-                 data-table-name="@table.TableName">
+<div class="table-card @sc @(warningSoon ? "warning-soon" : "") @(table.IsWaiterCalled ? "waiter-called" : "")"
+     data-status="@sc"
+     data-table-id="@table.TableId"
+     data-table-name="@table.TableName">
 
-                <div class="card-name">@table.TableName</div>
+    @* Zil ikonu — sadece IsWaiterCalled == true ise görünür *@
+    @if (table.IsWaiterCalled)
+    {
+        <div class="waiter-bell-badge">🔔 Garson!</div>
+    }
+
+    <div class="card-name">@table.TableName</div>
                 <div class="card-status">@StatusDot(table.TableStatus) @StatusLabel(table.TableStatus)</div>
                 <div class="card-capacity">👥 @table.TableCapacity kişilik</div>
                 <div class="card-divider"></div>
@@ -144,90 +153,90 @@ else
                         <a asp-controller="Orders" asp-action="Create"
                            asp-route-tableId="@table.TableId"
                            class="card-btn primary">Adisyon Aç</a>
-                        <form asp-controller="Tables" asp-action="CancelReserve" method="post">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="tableId" value="@table.TableId" />
-                            <button type="submit" class="card-btn secondary">Rezervasyonu İptal Et</button>
-                        </form>
+                        <button type="button" class="card-btn secondary"
+                                onclick="cancelReserve(@table.TableId)">Rezervasyonu İptal Et</button>
                     }
 
                     @if (table.TableStatus != 1)
                     {
-                        <form asp-controller="Tables" asp-action="Delete" method="post"
-                              onsubmit="return confirm('@table.TableName silinsin mi?')">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="tableId" value="@table.TableId" />
-                            <button type="submit" class="card-btn danger">Sil</button>
-                        </form>
+                        <button type="button" class="card-btn danger"
+                                onclick="deleteTable(@table.TableId, '@Html.Raw(table.TableName.Replace("'", "\\'"))')">Sil</button>
                     }
+                    
+ @if (table.IsWaiterCalled)
+    {
+        <button type="button" class="card-btn dismiss-waiter"
+                onclick="dismissWaiter('@Html.Raw(table.TableName.Replace("'", "\\'"))')">
+            ✅ İlgilenildi (Tamam)
+        </button>
+    }
+
+
                 </div>
             </div>
         }
     </div>
 }
-
+@if (User.IsInRole("Admin"))
+    {
 @* ── MASA EKLE MODAL ── *@
 <div class="modal-overlay" id="addModal">
     <div class="modal">
         <div class="modal-title">Yeni Masa Ekle</div>
-        <form asp-controller="Tables" asp-action="Create" method="post" onsubmit="return validateForm()">
-            @Html.AntiForgeryToken()
-            <div class="form-group">
-                <label class="form-label">Masa Adı *</label>
-                <input class="form-control" id="add-name" name="tableName" placeholder="Masa 1, Teras-2 ..." maxlength="20" />
-                <span class="form-error" id="err-add-name">Masa adı boş olamaz.</span>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Kapasite *</label>
-                <input class="form-control" id="add-cap" name="tableCapacity" type="number" min="1" max="20" value="4" />
-                <span class="form-error" id="err-add-cap">1 ile 20 arasında olmalıdır.</span>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn-ghost" onclick="closeModal('addModal')">İptal</button>
-                <button type="submit" class="btn-primary">Ekle</button>
-            </div>
-        </form>
+        @Html.AntiForgeryToken()
+        <div class="form-group">
+            <label class="form-label">Masa Adı *</label>
+            <input class="form-control" id="add-name" placeholder="Masa 1, Teras-2 ..." maxlength="20" />
+            <span class="form-error" id="err-add-name">Masa adı boş olamaz.</span>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Kapasite *</label>
+            <input class="form-control" id="add-cap" type="number" min="1" max="20" value="4" />
+            <span class="form-error" id="err-add-cap">1 ile 20 arasında olmalıdır.</span>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-ghost" onclick="closeModal('addModal')">İptal</button>
+            <button type="button" class="btn-primary" onclick="submitCreateTable()">Ekle</button>
+        </div>
     </div>
 </div>
-
+}
 @* ── REZERVE ET MODAL ── *@
 <div class="modal-overlay" id="reserveModal">
     <div class="modal">
         <div class="modal-title" id="res-modal-title">Rezervasyon</div>
         <div class="modal-sub"  id="res-modal-sub">Müşteri bilgilerini giriniz</div>
-        <form asp-controller="Tables" asp-action="Reserve" method="post" onsubmit="return validateReserveForm()">
-            @Html.AntiForgeryToken()
-            <input type="hidden" id="res-tableId" name="tableId" />
-            <input type="hidden" id="res-maxCap"  value="" />
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">İsim Soyisim *</label>
-                    <input class="form-control" id="res-name" name="reservationName" placeholder="Ahmet Yılmaz" maxlength="100" />
-                    <span class="form-error" id="err-res-name">Ad soyad boş olamaz.</span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Telefon *</label>
-                    <input class="form-control" id="res-phone" name="reservationPhone" placeholder="05xx xxx xx xx" maxlength="20" />
-                    <span class="form-error" id="err-res-phone">Telefon numarası boş olamaz.</span>
-                </div>
+        @Html.AntiForgeryToken()
+        <input type="hidden" id="res-tableId" />
+        <input type="hidden" id="res-maxCap"  value="" />
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">İsim Soyisim *</label>
+                <input class="form-control" id="res-name" placeholder="Ahmet Yılmaz" maxlength="100" />
+                <span class="form-error" id="err-res-name">Ad soyad boş olamaz.</span>
             </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">Kişi Sayısı *</label>
-                    <input class="form-control" id="res-guests" name="reservationGuestCount" type="number" min="1" value="2" />
-                    <span class="form-error" id="err-res-guests">Geçerli bir kişi sayısı girin.</span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Rezervasyon Saati *</label>
-                    <input class="form-control" id="res-time" name="reservationTime" type="time" />
-                    <span class="form-error" id="err-res-time">Geçerli bir saat seçiniz.</span>
-                </div>
+            <div class="form-group">
+                <label class="form-label">Telefon *</label>
+                <input class="form-control" id="res-phone" placeholder="05xx xxx xx xx" maxlength="20" />
+                <span class="form-error" id="err-res-phone">Telefon numarası boş olamaz.</span>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn-ghost" onclick="closeModal('reserveModal')">İptal</button>
-                <button type="submit" class="btn-primary">Rezerve Et</button>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Kişi Sayısı *</label>
+                <input class="form-control" id="res-guests" type="number" min="1" value="2" />
+                <span class="form-error" id="err-res-guests">Geçerli bir kişi sayısı girin.</span>
             </div>
-        </form>
+            <div class="form-group">
+                <label class="form-label">Rezervasyon Saati *</label>
+                <input class="form-control" id="res-time" type="time" />
+                <span class="form-error" id="err-res-time">Geçerli bir saat seçiniz.</span>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-ghost" onclick="closeModal('reserveModal')">İptal</button>
+            <button type="button" class="btn-primary" onclick="submitReserve()">Rezerve Et</button>
+        </div>
     </div>
 </div>
 
@@ -254,18 +263,16 @@ else
             </div>
         </div>
 
-        <form id="mergeForm" asp-controller="Tables" asp-action="MergeOrder" method="post">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="sourceTableId" id="merge-sourceTableId" />
-            <input type="hidden" name="targetTableId" id="merge-targetTableId" />
-            <div class="modal-footer">
-                <button type="button" class="btn-ghost" onclick="closeModal('mergeModal')">İptal</button>
-                <button type="submit" class="btn-primary" id="merge-submit-btn" disabled
-                        onclick="return confirmMerge()">
-                    ⇄ Birleştir
-                </button>
-            </div>
-        </form>
+        @Html.AntiForgeryToken()
+        <input type="hidden" id="merge-sourceTableId" />
+        <input type="hidden" id="merge-targetTableId" />
+        <div class="modal-footer">
+            <button type="button" class="btn-ghost" onclick="closeModal('mergeModal')">İptal</button>
+            <button type="button" class="btn-primary" id="merge-submit-btn" disabled
+                    onclick="submitMerge()">
+                ⇄ Birleştir
+            </button>
+        </div>
     </div>
 </div>
 
@@ -311,5 +318,7 @@ else
 </script>
 
 @section Scripts {
-     <script src="~/js/Views/Tables/Index.js" asp-append-version="true"></script>
+    @* SignalR istemci kütüphanesi — CDN üzerinden (veya libman ile wwwroot'a alabilirsiniz) *@
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="~/js/Views/Tables/Index.js" asp-append-version="true"></script>
 }
