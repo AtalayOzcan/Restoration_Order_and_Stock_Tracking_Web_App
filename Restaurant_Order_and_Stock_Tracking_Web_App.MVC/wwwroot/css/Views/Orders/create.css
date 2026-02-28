@@ -1,5 +1,4 @@
-﻿
-/* ─── POS sayfası layout'u dışa taşıyor (content padding'i ezer) ─── */
+﻿/* ─── POS sayfası layout'u dışa taşıyor (content padding'i ezer) ─── */
 .content {
     padding: 0 !important;
 }
@@ -739,4 +738,102 @@
         border-left: none;
         border-top: 1px solid var(--border);
     }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STOK SENKRONIZASYON — Create Sayfası
+   ─────────────────────────────────────────────────────────────
+   Kural 1+2: Sağ-alt toast bildirimleri
+   Kural 2: item-card-disabled (stoğu 0 ürün)
+   Kural 2: item-no-stock-badge
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Kural 2: Disabled ürün kartı ─────────────────────────── */
+.item-card.item-card-disabled {
+    opacity: .45;
+    cursor: not-allowed;
+    pointer-events: none;
+    background: repeating-linear-gradient( 135deg, transparent, transparent 6px, rgba(255,255,255,.025) 6px, rgba(255,255,255,.025) 12px );
+    border-color: rgba(239, 68, 68, .2);
+}
+
+    .item-card.item-card-disabled:hover {
+        transform: none;
+        box-shadow: none;
+    }
+
+/* "(Stokta bulunmuyor)" badge ───────────────────────────────── */
+.item-no-stock-badge {
+    display: block;
+    margin-top: 4px;
+    font-size: .7rem;
+    font-weight: 600;
+    color: #f87171;
+    letter-spacing: .01em;
+    line-height: 1.3;
+}
+
+/* ── Kural 1+2: Toast Container (sağ-alt) ─────────────────── */
+.cr-toast-container {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    pointer-events: none;
+}
+
+.cr-toast {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .65rem 1rem;
+    border-radius: 10px;
+    font-size: .875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    max-width: 340px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .35);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity .3s ease, transform .3s ease;
+    backdrop-filter: blur(8px);
+}
+
+    .cr-toast.cr-toast-show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .cr-toast.cr-toast-warning {
+        background: rgba(234, 179, 8, .15);
+        border: 1px solid rgba(234, 179, 8, .35);
+        color: #fcd34d;
+    }
+
+    .cr-toast.cr-toast-error {
+        background: rgba(239, 68, 68, .15);
+        border: 1px solid rgba(239, 68, 68, .35);
+        color: #f87171;
+    }
+
+    .cr-toast.cr-toast-success {
+        background: rgba(16, 185, 129, .15);
+        border: 1px solid rgba(16, 185, 129, .35);
+        color: #34d399;
+    }
+
+/* Light mode overrides */
+[data-theme="light"] .cr-toast.cr-toast-warning {
+    background: rgba(234, 179, 8, .1);
+    border-color: rgba(234, 179, 8, .4);
+    color: #92400e;
+}
+
+[data-theme="light"] .cr-toast.cr-toast-error {
+    background: rgba(239, 68, 68, .08);
+    border-color: rgba(239, 68, 68, .35);
+    color: #991b1b;
 }

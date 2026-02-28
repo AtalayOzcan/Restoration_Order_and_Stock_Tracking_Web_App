@@ -89,10 +89,17 @@
     let aimCurName = '';
     let aimCatActive = 'all';
     let aimBasket = [];
+    // ── Stok sınırı state (4 iş kuralı için) ────────────────────
+    let aimMaxStock = 0;     // seçili ürünün mevcut stoğu (TrackStock=false → Infinity)
+    let aimTrackStock = false; // seçili ürün stok takibi altında mı?
 
     window.aimPick = function (id) {
         const row = document.getElementById('arow-' + id);
         if (!row) return;
+
+        // KAPAK 1 — CSS pointer-events:none aim-row-disabled kartı zaten bloke eder.
+        // Bu JS guard ikinci güvencedir (CSS atlatılma senaryosuna karşı).
+        if (row.classList.contains('aim-row-disabled')) return;
 
         document.querySelectorAll('.aim-row.picked').forEach(r => r.classList.remove('picked'));
         row.classList.add('picked');
@@ -101,6 +108,15 @@
         aimCurName = row.dataset.name;
         aimPrice = parseFloat(row.dataset.price);
         aimQty = 1;
+
+        // KAPAK 2 — NaN-güvenli stok okuma
+        // data-track yoksa/false → sınırsız (Infinity)
+        // data-stock yoksa/NaN  → sınırsız (Infinity)
+        aimTrackStock = (row.dataset.track ?? 'false') === 'true';
+        const rawStock = parseInt(row.dataset.stock ?? '', 10);
+        aimMaxStock = (aimTrackStock && Number.isInteger(rawStock) && rawStock >= 0)
+            ? rawStock
+            : Infinity;
 
         document.getElementById('aimSelName').textContent = aimCurName;
         document.getElementById('aimSelUnit').textContent = fmt(aimPrice) + ' / adet';
@@ -113,7 +129,19 @@
     };
 
     window.aimDelta = function (d) {
-        aimQty = Math.max(1, Math.min(99, aimQty + d));
+        const newQty = aimQty + d;
+
+        // Stok sınırı — yalnızca: takip açık VE maxStock sonlu bir sayıysa
+        if (aimTrackStock && Number.isFinite(aimMaxStock) && newQty > aimMaxStock) {
+            showAimToast(`Ürün stoğu = ${aimMaxStock} kadar ekleme yapabilirsiniz.`, 'warning');
+            aimQty = aimMaxStock;
+            aimRefresh();
+            return;
+        }
+
+        // Takip kapalıysa üst sınır 99 (Infinity ile Math.min patlama riski yok)
+        const upperBound = (aimTrackStock && Number.isFinite(aimMaxStock)) ? aimMaxStock : 99;
+        aimQty = Math.max(1, Math.min(upperBound, newQty));
         aimRefresh();
     };
 
@@ -122,17 +150,56 @@
         document.getElementById('aimTotal').textContent = fmt(aimPrice * aimQty);
         document.getElementById('aimAddBtn').textContent =
             '+ Sepete Ekle (' + aimQty + ' adet — ' + fmt(aimPrice * aimQty) + ')';
+
+        // ── Stok bilgi etiketi ────────────────────────────────────
+        let stockLbl = document.getElementById('aimStockHint');
+        if (aimTrackStock && Number.isFinite(aimMaxStock)) {
+            if (!stockLbl) {
+                stockLbl = document.createElement('div');
+                stockLbl.id = 'aimStockHint';
+                stockLbl.style.cssText = 'font-size:.8rem;margin-top:4px;';
+                document.getElementById('aimQtyNum').closest('.aim-qty-box').appendChild(stockLbl);
+            }
+            const remaining = aimMaxStock - aimQty;
+            stockLbl.style.color = remaining <= 2 ? '#f87171' : 'var(--text-muted)';
+            stockLbl.textContent = `Stok: ${aimMaxStock} adet (kalan ${remaining})`;
+        } else if (stockLbl) {
+            stockLbl.remove();
+        }
     }
 
     window.aimAddToBasket = function () {
         if (!aimCurId) return;
         const note = (document.getElementById('aimNoteInp').value || '').trim();
 
+        // ── Kural 1: Sepetteki mevcut miktarla birlikte stok kontrolü ──
+        if (aimTrackStock && Number.isFinite(aimMaxStock)) {
+            const alreadyInBasket = aimBasket
+                .filter(i => i.id === aimCurId)
+                .reduce((s, i) => s + i.qty, 0);
+            const totalWanted = alreadyInBasket + aimQty;
+            if (totalWanted > aimMaxStock) {
+                const canAdd = Math.max(0, aimMaxStock - alreadyInBasket);
+                showAimToast(
+                    canAdd > 0
+                        ? `Ürün stoğu = ${aimMaxStock} kadar ekleme yapabilirsiniz. (Sepette zaten ${alreadyInBasket} adet var)`
+                        : `Bu üründen sepete maksimum ${aimMaxStock} adet ekleyebilirsiniz.`,
+                    'warning'
+                );
+                return;
+            }
+        }
+
         const existing = aimBasket.find(i => i.id === aimCurId && i.note === note);
         if (existing) {
-            existing.qty = Math.min(99, existing.qty + aimQty);
+            // Yalnızca stok takibindeyse ve maxStock sonluysa sınırla
+            const cap = (aimTrackStock && Number.isFinite(aimMaxStock)) ? aimMaxStock : 999;
+            existing.qty = Math.min(cap, existing.qty + aimQty);
         } else {
-            aimBasket.push({ id: aimCurId, name: aimCurName, price: aimPrice, qty: aimQty, note });
+            aimBasket.push({
+                id: aimCurId, name: aimCurName, price: aimPrice, qty: aimQty, note,
+                maxStock: (aimTrackStock && Number.isFinite(aimMaxStock)) ? aimMaxStock : Infinity
+            });
         }
 
         aimQty = 1;
@@ -206,6 +273,56 @@
         aimRenderBasket();
     };
 
+    // ── Toast Bildirimi (sağ alt köşe, kural 2) ───────────────────────────────
+    // Projedeki diğer sayfalardaki (Category/Stock) showToast ile aynı pattern.
+    function showAimToast(message, type = 'success') {
+        const container = document.getElementById('detailToastContainer');
+        if (!container) return;
+
+        const icons = { success: '✅', error: '❌', warning: '⚠️' };
+        const toast = document.createElement('div');
+        toast.className = `aim-toast aim-toast-${type}`;
+        toast.innerHTML = `<span>${icons[type] || '⚠️'}</span><span>${message}</span>`;
+        container.appendChild(toast);
+
+        // Animasyon: fade-in anında, 3.5sn sonra fade-out & kaldır
+        requestAnimationFrame(() => toast.classList.add('aim-toast-show'));
+        setTimeout(() => {
+            toast.classList.remove('aim-toast-show');
+            setTimeout(() => toast.remove(), 400);
+        }, 3500);
+    }
+
+    // ── Stok Hata Mesajı (styled banner) ─────────────────────────────────────
+    // Backend'den gelen stok uyarısını alert() yerine modal içinde gösterir.
+    function showStockError(msg) {
+        // Önceki varsa kaldır
+        const prev = document.getElementById('aim-stock-error');
+        if (prev) prev.remove();
+
+        const banner = document.createElement('div');
+        banner.id = 'aim-stock-error';
+        banner.style.cssText = [
+            'background:rgba(239,68,68,.12)',
+            'border:1px solid rgba(239,68,68,.4)',
+            'border-radius:8px',
+            'color:#f87171',
+            'padding:10px 14px',
+            'margin:10px 0 4px',
+            'font-size:.88rem',
+            'line-height:1.45',
+        ].join(';');
+        banner.textContent = '⚠️ ' + msg;
+
+        // Sepet listesinin üstüne yerleştir
+        const basket = document.getElementById('aimBasketList') ?? document.getElementById('aimSendBtn')?.parentElement;
+        if (basket) basket.insertAdjacentElement('beforebegin', banner);
+        else document.getElementById('addItemModal')?.querySelector('.modal-body')?.prepend(banner);
+
+        // 6 saniye sonra otomatik kapat
+        setTimeout(() => banner.remove(), 6000);
+    }
+
     // ── Tümünü gönder (Bulk) — AddItemBulk ──
     window.aimSendAll = async function () {
         if (!aimBasket.length) return;
@@ -233,7 +350,8 @@
             } else {
                 btn.disabled = false;
                 btn.textContent = '✓ Tümünü Adisyona Gönder';
-                alert('Hata: ' + (data.message || 'Bilinmeyen hata'));
+                // Backend stok hatası → toast (kural 2)
+                showAimToast(data.message || 'Bilinmeyen hata', 'warning');
             }
         } catch (e) {
             if (e.message !== 'Unauthorized') {

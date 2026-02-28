@@ -96,7 +96,7 @@
             }
 
             @* ── Garson / Kasiyer: Sadece Masalar ve Siparişler ─────── *@
-            @if ( User.IsInRole("Kasiyer"))
+            @if (User.IsInRole("Kasiyer"))
             {
                 <span class="nav-label">Ana Menü</span>
 
@@ -120,19 +120,19 @@
                     }
                 </a>
             }
-            @if (User.IsInRole("Garson") )
+            @if (User.IsInRole("Garson"))
             {
-            <span class="nav-label">Ana Menü</span>
+                <span class="nav-label">Ana Menü</span>
 
-            <a class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Tables" ? "active" : "")"
-               asp-controller="Tables" asp-action="Index">
-                <span class="nav-icon">🪑</span>
-                <span class="nav-text">Masalar</span>
-                @if (ViewData["OccupiedCount"] is int oc2 && oc2 > 0)
-                {
-                    <span class="badge">@oc2</span>
-                }
-            </a>
+                <a class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Tables" ? "active" : "")"
+                   asp-controller="Tables" asp-action="Index">
+                    <span class="nav-icon">🪑</span>
+                    <span class="nav-text">Masalar</span>
+                    @if (ViewData["OccupiedCount"] is int oc2 && oc2 > 0)
+                    {
+                        <span class="badge">@oc2</span>
+                    }
+                </a>
             }
         </nav>
 
@@ -156,7 +156,7 @@
             </div>
             <form asp-controller="Auth" asp-action="Logout" method="post" style="margin:0">
                 @Html.AntiForgeryToken()
-                <button type="submit" title="Çıkış Yap" style="background:none;border:1px solid;border-radius:4px;cursor:pointer;border-color:dimgrey;color:white;font-size:1.1rem;padding:4px;">
+                <button type="submit" title="Çıkış Yap" style="background:none;border:1px solid;border-radius:4px;cursor:pointer;border-color:dimgrey;color:var(--text);font-size:1.1rem;padding:4px;">
                     🚪Çıkış Yap
                 </button>
             </form>

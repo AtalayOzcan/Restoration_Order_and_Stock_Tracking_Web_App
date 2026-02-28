@@ -1,5 +1,4 @@
-﻿
-/* ── LAYOUT ── */
+﻿/* ── LAYOUT ── */
 .detail-layout {
     display: grid;
     grid-template-columns: 1fr 320px;
@@ -2248,3 +2247,101 @@
 }
 
 
+
+/* ═══════════════════════════════════════════════════════════════
+   STOK SENKRONIZASYON EKLENTİLERİ
+   ─────────────────────────────────────────────────────────────
+   Kural 3: Stoğu sıfır ürünler disabled görünümü
+   Kural 4: "(Ürünün stoğu yoktur)" badge
+   Kural 2: Sağ-alt toast bildirimleri
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Kural 3: Disabled aim-row ─────────────────────────────── */
+.aim-row.aim-row-disabled {
+    opacity: .45;
+    cursor: not-allowed;
+    pointer-events: none;
+    background: repeating-linear-gradient( 135deg, transparent, transparent 6px, rgba(255,255,255,.02) 6px, rgba(255,255,255,.02) 12px );
+}
+
+    .aim-row.aim-row-disabled:hover {
+        background: none;
+        transform: none;
+    }
+
+/* ── Kural 4: Stoğu yok badge ──────────────────────────────── */
+.aim-no-stock-badge {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: .72rem;
+    font-weight: 600;
+    color: #f87171;
+    opacity: .85;
+    vertical-align: middle;
+    letter-spacing: .01em;
+}
+
+/* ── Kural 2: Toast Container (sağ-alt köşe) ──────────────── */
+.aim-toast-container {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    pointer-events: none;
+}
+
+.aim-toast {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .65rem 1rem;
+    border-radius: 10px;
+    font-size: .875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    max-width: 340px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.35);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity .3s ease, transform .3s ease;
+    backdrop-filter: blur(8px);
+}
+
+    .aim-toast.aim-toast-show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .aim-toast.aim-toast-warning {
+        background: rgba(234, 179, 8, .15);
+        border: 1px solid rgba(234, 179, 8, .35);
+        color: #fcd34d;
+    }
+
+    .aim-toast.aim-toast-error {
+        background: rgba(239, 68, 68, .15);
+        border: 1px solid rgba(239, 68, 68, .35);
+        color: #f87171;
+    }
+
+    .aim-toast.aim-toast-success {
+        background: rgba(16, 185, 129, .15);
+        border: 1px solid rgba(16, 185, 129, .35);
+        color: #34d399;
+    }
+
+/* Light mode overrides */
+[data-theme="light"] .aim-toast.aim-toast-warning {
+    background: rgba(234, 179, 8, .12);
+    border-color: rgba(234, 179, 8, .4);
+    color: #92400e;
+}
+
+[data-theme="light"] .aim-toast.aim-toast-error {
+    background: rgba(239, 68, 68, .1);
+    border-color: rgba(239, 68, 68, .35);
+    color: #991b1b;
+}

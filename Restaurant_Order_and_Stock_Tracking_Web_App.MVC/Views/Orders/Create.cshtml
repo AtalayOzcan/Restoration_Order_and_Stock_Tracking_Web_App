@@ -60,20 +60,34 @@
 
             @foreach (var cat in categories)
             {
+                @* Kural 2: Stoğu 0 olanlar üste, aktifler alta — kategori içinde sırala *@
+                var sortedItems = cat.MenuItems
+                .OrderByDescending(m => m.TrackStock && m.StockQuantity <= 0)
+                .ToList();
+
                 <div class="cat-block" id="cat-@cat.CategoryId">
                     <div class="cat-block-title">@cat.CategoryName</div>
                     <div class="items-grid">
-                        @foreach (var mi in cat.MenuItems)
+                        @foreach (var mi in sortedItems)
                         {
-                            <div class="item-card"
+                            bool outOfStock = mi.TrackStock && mi.StockQuantity <= 0;
+                            <div class="item-card @(outOfStock ? "item-card-disabled" : "")"
                                  id="icard-@mi.MenuItemId"
                                  data-id="@mi.MenuItemId"
                                  data-name="@Html.Raw(mi.MenuItemName.Replace("\"", "&quot;").Replace("'", "&#39;"))"
                                  data-price="@mi.MenuItemPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
                                  data-cat="cat-@cat.CategoryId"
                                  data-keywords="@mi.MenuItemName.ToLower()"
+                                 data-stock="@mi.StockQuantity"
+                                 data-track="@mi.TrackStock.ToString().ToLower()"
                                  onclick="addItem(@mi.MenuItemId)">
-                                <div class="item-name">@mi.MenuItemName</div>
+                                <div class="item-name">
+                                    @mi.MenuItemName
+                                    @if (outOfStock)
+                                    {
+                                        <span class="item-no-stock-badge">(Stokta bulunmuyor)</span>
+                                    }
+                                </div>
                                 <div class="item-price">₺@mi.MenuItemPrice.ToString("N2")</div>
                                 <div class="item-qty-badge" id="badge-@mi.MenuItemId"></div>
                             </div>
@@ -131,6 +145,9 @@
 
     </div>
 </div>
+
+@* Toast Container — stok uyarıları sağ-alttan çıkar *@
+<div id="createToastContainer" class="cr-toast-container"></div>
 
 @section Scripts {
     <script src="~/js/Views/Orders/Create.js" asp-append-version="true"></script>
