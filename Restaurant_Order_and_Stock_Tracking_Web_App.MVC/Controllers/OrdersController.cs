@@ -632,27 +632,97 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
 
                 if (tracksStock)
                 {
-                    item.IsWasted = dto.IsWasted ?? false;
+                    // ── HATA 1 DÜZELTMESİ ─────────────────────────────────────
+                    // item.IsWasted EZME — aynı kaleme birden fazla iptal yapılabilir:
+                    // ilk 2 adet zayi, sonraki 2 adet iade gibi. Her işlem bağımsız
+                    // StockLog satırı olarak kaydedilmeli; item.IsWasted yalnızca
+                    // "son işlemi" tutar (geriye dönük bilgi için korunuyor).
+                    // ──────────────────────────────────────────────────────────
+                    item.IsWasted = dto.IsWasted ?? false; // son işlemi işaret eder
+
+                    int prevStock = item.MenuItem!.StockQuantity;
+
                     if (dto.IsWasted != true)
                     {
+                        // Normal iade → stoka geri ekle
                         item.MenuItem!.StockQuantity += dto.CancelQty;
                         if (!item.MenuItem.IsAvailable && item.MenuItem.StockQuantity > 0)
                             item.MenuItem.IsAvailable = true;
                     }
+                    // Zayi ise stok değişmez (zaten kullanıldı)
+
+                    // ── StockLog kaydı ─────────────────────────────────────────
+                    // Her iptal işlemi (iade veya zayi) bağımsız satır olarak
+                    // StockLogs tablosuna yazılır — bir sonraki işlem bunu ezmez.
+                    //
+                    // BUG 1+5 DÜZELTMESİ:
+                    //   SourceType = "SiparişKaynaklı"  → fire raporuna doğru kategoride düşer
+                    //   OrderId    = dto.OrderId         → rapor tablosunda adisyon no görünür
+                    //   UnitPrice  = OrderItemUnitPrice  → tutar hesabı sipariş fiyatından yapılır
+                    //   QuantityChange = -dto.CancelQty  → Math.Abs ile raporda doğru miktar (0 değil)
+                    _db.StockLogs.Add(new StockLog
+                    {
+                        MenuItemId = item.MenuItem!.MenuItemId,
+                        MovementType = dto.IsWasted == true ? "Çıkış" : "Giriş",
+                        QuantityChange = dto.IsWasted == true ? -dto.CancelQty : dto.CancelQty,
+                        PreviousStock = prevStock,
+                        NewStock = dto.IsWasted == true ? prevStock : prevStock + dto.CancelQty,
+                        Note = dto.IsWasted == true
+                                            ? $"Zayi/Fire — Adisyon #{dto.OrderId}, {dto.CancelQty} adet"
+                                            : $"İptal iadesi — Adisyon #{dto.OrderId}, {dto.CancelQty} adet",
+                        // ── Yeni alanlar ──────────────────────────────────────
+                        SourceType = dto.IsWasted == true ? "SiparişKaynaklı" : null,
+                        OrderId = dto.IsWasted == true ? dto.OrderId : null,
+                        UnitPrice = item.OrderItemUnitPrice,
+                        CreatedAt = DateTime.UtcNow
+                    });
                 }
                 else
                 {
                     item.IsWasted = null;
                 }
 
-                await _db.SaveChangesAsync();
+                // ── HATA 2 DÜZELTMESİ (Kısım 1/2) ────────────────────────────
+                // İptal sonrası adisyon otomatik kapanış kontrolü:
+                // Kalan (OrderTotalAmount - toplam ödeme) <= 0 ise adisyonu kapat.
+                // Senaryo: 2 kola ödendi → 2 kola iptal → tutar sıfırlandı → kapat.
+                await _db.SaveChangesAsync(); // önce değişiklikleri yaz
+
+                var freshPayments = await _db.Payments
+                    .Where(p => p.OrderId == order.OrderId)
+                    .SumAsync(p => p.PaymentsAmount);
+
+                if (order.OrderStatus == "open" && order.OrderTotalAmount - freshPayments <= 0.001m && freshPayments > 0)
+                {
+                    // Ödeme alınmış ve kalan tutar sıfırlandı → adisyonu kapat
+                    var table = await _db.Tables.FindAsync(order.TableId);
+
+                    order.OrderStatus = "paid";
+                    order.OrderClosedAt = DateTime.UtcNow;
+                    if (table != null) table.TableStatus = 0;
+
+                    await _db.SaveChangesAsync();
+                    await tx.CommitAsync();
+
+                    string stockNote2 = tracksStock
+                        ? (dto.IsWasted == true ? " | Zayi kaydedildi." : " | Stoka iade edildi.")
+                        : string.Empty;
+
+                    return Json(new
+                    {
+                        success = true,
+                        message = $"{dto.CancelQty} adet iptal edildi.{stockNote2} Kalan tutar sıfırlandı, adisyon kapatıldı.",
+                        redirectUrl = Url.Action("Index", "Tables")
+                    });
+                }
+
                 await tx.CommitAsync();
 
                 string stockNote = tracksStock
                     ? (dto.IsWasted == true ? " | Zayi/Fire olarak işaretlendi." : " | Stoka iade edildi.")
                     : string.Empty;
 
-                return Json(new { success = true, message = $"{dto.CancelQty} adet iptal edildi.{stockNote}" });
+                return Json(new { success = true, message = $"{dto.CancelQty} adet iptal edildi.{stockNote}", redirectUrl = (string?)null });
             }
             catch (Exception ex)
             {

@@ -68,6 +68,7 @@
         <span class="count">@Model.OrderWastes.Count kayıt ▼</span>
     </div>
     <div class="acc-body">
+        @* BUG 4 DÜZELTMESİ: Sipariş Kaynaklı — Adisyon No sütunu eklendi *@
         @if (Model.OrderWastes.Any())
         {
             <table class="data-table">
@@ -75,6 +76,7 @@
                     <tr>
                         <th>Tarih</th>
                         <th>Ürün</th>
+                        <th>Adisyon No</th>
                         <th>Miktar</th>
                         <th>Birim Fiyat</th>
                         <th>Toplam Kayıp</th>
@@ -87,6 +89,17 @@
                         <tr>
                             <td style="color:var(--text-muted); font-size:12px;">@w.Date.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
                             <td>@w.ProductName</td>
+                            @* BUG 4: Sipariş kaynaklı → Adisyon No göster, stok notu yok *@
+                            <td>
+                                @if (w.OrderId.HasValue)
+                                {
+                                    <span style="font-family:'Syne',sans-serif;font-weight:700;color:var(--accent);">#@w.OrderId</span>
+                                }
+                                else
+                                {
+                                    <span style="color:var(--text-muted);">—</span>
+                                }
+                            </td>
                             <td><span class="pill-amber">@w.Quantity</span></td>
                             <td>₺@w.UnitPrice.ToString("N2")</td>
                             <td><span class="pill-red">₺@w.TotalLoss.ToString("N2")</span></td>
@@ -110,6 +123,7 @@
         <span class="count">@Model.StockLogWastes.Count kayıt ▼</span>
     </div>
     <div class="acc-body">
+        @* BUG 4 DÜZELTMESİ: Stok Kaynaklı — Adisyon No sütunu YOK, Note (fire nedeni) gösterilir *@
         @if (Model.StockLogWastes.Any())
         {
             <table class="data-table">
@@ -120,7 +134,8 @@
                         <th>Miktar</th>
                         <th>Birim Fiyat</th>
                         <th>Toplam Kayıp</th>
-                        <th>Not</th>
+                        @* BUG 4: Stok kaynaklı → Adisyon No yok, fire nedeni (Note) göster *@
+                        <th>Fire Nedeni (Stok Notu)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -132,7 +147,16 @@
                             <td><span class="pill-amber">@w.Quantity</span></td>
                             <td>₺@w.UnitPrice.ToString("N2")</td>
                             <td><span class="pill-red">₺@w.TotalLoss.ToString("N2")</span></td>
-                            <td style="color:var(--text-muted);">@(string.IsNullOrEmpty(w.Note) ? "—" : w.Note)</td>
+                            <td style="color:var(--text-muted);">
+                                @if (string.IsNullOrEmpty(w.Note))
+                                {
+                                    <span style="opacity:.4;">—</span>
+                                }
+                                else
+                                {
+                                    <span title="@w.Note">@w.Note</span>
+                                }
+                            </td>
                         </tr>
                     }
                 </tbody>

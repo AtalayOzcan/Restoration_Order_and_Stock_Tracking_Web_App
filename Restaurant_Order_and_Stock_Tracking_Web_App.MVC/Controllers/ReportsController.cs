@@ -96,14 +96,26 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
                           && oi.CancelledQuantity > 0)
                 .SumAsync(oi => oi.CancelledQuantity * oi.OrderItemUnitPrice);
 
-            // Bugünkü fire tutarı
-            var wasteAmount = await _context.OrderItems
-                .Where(oi => oi.OrderItemAddedAt >= fromUtc
-                          && oi.OrderItemAddedAt < toUtc
-                          && oi.IsWasted == true)
-                .SumAsync(oi => oi.OrderItemLineTotal);
+            // BUG 3 DÜZELTMESİ: Bugünkü fire tutarı — hem sipariş hem stok kaynaklı
+            // Eski kod yalnızca OrderItems.IsWasted==true'yu topluyordu (eksik).
+            // Yeni: StockLog üzerinden SourceType filtresiyle her iki kaynak birleştirildi.
+            // Sipariş kaynaklı fire: SourceType="SiparişKaynaklı", Qty*UnitPrice
+            // Stok kaynaklı fire:    SourceType="StokKaynaklı",    Qty*UnitPrice
+            var orderWasteAmountToday = await _context.StockLogs
+                .Where(sl => sl.SourceType == "SiparişKaynaklı"
+                          && sl.CreatedAt >= fromUtc
+                          && sl.CreatedAt < toUtc)
+                .SumAsync(sl => (decimal?)Math.Abs(sl.QuantityChange) * (sl.UnitPrice ?? sl.MenuItem.MenuItemPrice)) ?? 0m;
 
-            
+            var stockWasteAmountToday = await _context.StockLogs
+                .Where(sl => sl.SourceType == "StokKaynaklı"
+                          && sl.CreatedAt >= fromUtc
+                          && sl.CreatedAt < toUtc)
+                .SumAsync(sl => (decimal?)Math.Abs(sl.QuantityChange) * (sl.UnitPrice ?? sl.MenuItem.MenuItemPrice)) ?? 0m;
+
+            var wasteAmount = orderWasteAmountToday + stockWasteAmountToday;
+
+
             // Kritik stok ürünleri
             var criticalItems = await _context.MenuItems
                 .Where(m => !m.IsDeleted
@@ -183,38 +195,59 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
             var fromUtc = filter.FromUtc;
             var toUtc = filter.ToUtc;
 
-            // 1. OrderItem kaynaklı fireler (IsWasted=true)
-            var orderWastes = await _context.OrderItems
-                .Where(oi => oi.IsWasted == true
-                          && oi.OrderItemAddedAt >= fromUtc
-                          && oi.OrderItemAddedAt < toUtc)
-                .Select(oi => new WasteItemDto
+            // ══════════════════════════════════════════════════════════
+            // BUG 1+4+5 DÜZELTMESİ — CancelAndWaste sorguları
+            //
+            // ESKI (hatalı):
+            //   OrderWastes = OrderItems WHERE IsWasted==true
+            //   → Quantity = OrderItemQty - CancelledQty = KALAN adet (0 oluyor!)
+            //   → TotalLoss = OrderItemLineTotal = KALAN tutar (0 oluyor!)
+            //   → Adisyon No bilgisi yok
+            //   → Stok kaynaklı ile tip ayrımı yok (tüm Çıkış'lar birleşiyor)
+            //
+            // YENİ (doğru):
+            //   Her iki kaynak StockLog.SourceType filtresiyle ayrışıyor.
+            //   Qty   = Math.Abs(QuantityChange) → iptal edilen gerçek miktar
+            //   Tutar = Qty * UnitPrice (OrderItem fiyatından kaydedildi)
+            //   OrderId → raporda adisyon no gösterimi için
+            // ══════════════════════════════════════════════════════════
+
+            // 1. Sipariş Kaynaklı Fire: CancelItem'da IsWasted=true ile yazılan StockLog'lar
+            var orderWastes = await _context.StockLogs
+                .Where(sl => sl.SourceType == "SiparişKaynaklı"
+                          && sl.CreatedAt >= fromUtc
+                          && sl.CreatedAt < toUtc)
+                .Select(sl => new WasteItemDto
                 {
-                    ProductName = oi.MenuItem.MenuItemName,
-                    Quantity = oi.OrderItemQuantity - oi.CancelledQuantity,
-                    UnitPrice = oi.OrderItemUnitPrice,
-                    CostPrice = oi.MenuItem.CostPrice,
-                    TotalLoss = oi.OrderItemLineTotal,
-                    Date = oi.OrderItemAddedAt,
-                    CancelReason = oi.CancelReason ?? ""
+                    ProductName = sl.MenuItem.MenuItemName,
+                    Quantity = Math.Abs(sl.QuantityChange),          // iptal edilen gerçek miktar
+                    UnitPrice = sl.UnitPrice ?? sl.MenuItem.MenuItemPrice,
+                    CostPrice = sl.MenuItem.CostPrice,
+                    TotalLoss = Math.Abs(sl.QuantityChange) * (sl.UnitPrice ?? sl.MenuItem.MenuItemPrice),
+                    Date = sl.CreatedAt,
+                    CancelReason = sl.Note ?? "",
+                    SourceType = "SiparişKaynaklı",
+                    OrderId = sl.OrderId                            // adisyon no raporda görünür
                 })
                 .OrderByDescending(x => x.Date)
                 .ToListAsync();
 
-            // 2. StockLog kaynaklı fireler (Çıkış veya Düzeltme)
+            // 2. Stok Kaynaklı Fire: UpdateStock fire modundan gelen StockLog'lar
             var stockLogWastes = await _context.StockLogs
-                .Where(sl => (sl.MovementType == MovementOut || sl.MovementType == MovementFix)
+                .Where(sl => sl.SourceType == "StokKaynaklı"
                           && sl.CreatedAt >= fromUtc
                           && sl.CreatedAt < toUtc)
                 .Select(sl => new WasteItemDto
                 {
                     ProductName = sl.MenuItem.MenuItemName,
                     Quantity = Math.Abs(sl.QuantityChange),
-                    UnitPrice = sl.MenuItem.MenuItemPrice,
+                    UnitPrice = sl.UnitPrice ?? sl.MenuItem.MenuItemPrice,
                     CostPrice = sl.MenuItem.CostPrice,
-                    TotalLoss = Math.Abs(sl.QuantityChange) * sl.MenuItem.MenuItemPrice,
+                    TotalLoss = Math.Abs(sl.QuantityChange) * (sl.UnitPrice ?? sl.MenuItem.MenuItemPrice),
                     Date = sl.CreatedAt,
-                    Note = sl.Note ?? ""
+                    Note = sl.Note ?? "",
+                    SourceType = "StokKaynaklı",
+                    OrderId = null                                   // adisyon bağlantısı yok
                 })
                 .OrderByDescending(x => x.Date)
                 .ToListAsync();
@@ -581,24 +614,29 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
             var fromUtc = filter.FromUtc;
             var toUtc = filter.ToUtc;
 
-            var orderWasteTotal = await _context.OrderItems
-                .Where(oi => oi.IsWasted == true
-                          && oi.OrderItemAddedAt >= fromUtc
-                          && oi.OrderItemAddedAt < toUtc)
-                .SumAsync(oi => oi.OrderItemLineTotal);
-
-            var stockLogWasteTotal = await _context.StockLogs
-                .Where(sl => (sl.MovementType == MovementOut || sl.MovementType == MovementFix)
+            // BUG 3 DÜZELTMESİ — GetWasteChartData: SourceType bazlı sorgular
+            var orderWasteTotal = await _context.StockLogs
+                .Where(sl => sl.SourceType == "SiparişKaynaklı"
                           && sl.CreatedAt >= fromUtc
                           && sl.CreatedAt < toUtc)
-                .SumAsync(sl => Math.Abs(sl.QuantityChange) * sl.MenuItem.MenuItemPrice);
+                .SumAsync(sl => (decimal?)Math.Abs(sl.QuantityChange) * (sl.UnitPrice ?? sl.MenuItem.MenuItemPrice)) ?? 0m;
 
-            var topProducts = await _context.OrderItems
-                .Where(oi => oi.IsWasted == true
-                          && oi.OrderItemAddedAt >= fromUtc
-                          && oi.OrderItemAddedAt < toUtc)
-                .GroupBy(oi => oi.MenuItem.MenuItemName)
-                .Select(g => new { Name = g.Key, Loss = g.Sum(x => x.OrderItemLineTotal) })
+            var stockLogWasteTotal = await _context.StockLogs
+                .Where(sl => sl.SourceType == "StokKaynaklı"
+                          && sl.CreatedAt >= fromUtc
+                          && sl.CreatedAt < toUtc)
+                .SumAsync(sl => (decimal?)Math.Abs(sl.QuantityChange) * (sl.UnitPrice ?? sl.MenuItem.MenuItemPrice)) ?? 0m;
+
+            var topProducts = await _context.StockLogs
+                .Where(sl => (sl.SourceType == "SiparişKaynaklı" || sl.SourceType == "StokKaynaklı")
+                          && sl.CreatedAt >= fromUtc
+                          && sl.CreatedAt < toUtc)
+                .GroupBy(sl => sl.MenuItem.MenuItemName)
+                .Select(g => new
+                {
+                    Name = g.Key,
+                    Loss = g.Sum(x => (decimal?)Math.Abs(x.QuantityChange) * (x.UnitPrice ?? x.MenuItem.MenuItemPrice)) ?? 0m
+                })
                 .OrderByDescending(x => x.Loss)
                 .Take(10)
                 .ToListAsync();
@@ -985,35 +1023,37 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
             var fromUtc = filter.FromUtc;
             var toUtc = filter.ToUtc;
 
-            var orderWaste = await _context.OrderItems
-                .Where(oi => oi.IsWasted == true && oi.OrderItemAddedAt >= fromUtc && oi.OrderItemAddedAt < toUtc)
-                .Select(oi => new
-                {
-                    Date = oi.OrderItemAddedAt,
-                    ProductName = oi.MenuItem.MenuItemName,
-                    Quantity = oi.OrderItemQuantity - oi.CancelledQuantity,
-                    UnitPrice = oi.OrderItemUnitPrice,
-                    TotalLoss = oi.OrderItemLineTotal,
-                    Note = oi.CancelReason ?? ""
-                })
-                .ToListAsync();
-
-            var stockWaste = await _context.StockLogs
-                .Where(sl => (sl.MovementType == MovementOut || sl.MovementType == MovementFix)
+            // BUG 5 DÜZELTMESİ — Export: SourceType bazlı, doğru miktar/tutar
+            var orderWaste = await _context.StockLogs
+                .Where(sl => sl.SourceType == "SiparişKaynaklı"
                           && sl.CreatedAt >= fromUtc && sl.CreatedAt < toUtc)
                 .Select(sl => new
                 {
                     Date = sl.CreatedAt,
                     ProductName = sl.MenuItem.MenuItemName,
                     Quantity = Math.Abs(sl.QuantityChange),
-                    UnitPrice = sl.MenuItem.MenuItemPrice,
-                    TotalLoss = Math.Abs(sl.QuantityChange) * sl.MenuItem.MenuItemPrice,
+                    UnitPrice = sl.UnitPrice ?? sl.MenuItem.MenuItemPrice,
+                    TotalLoss = Math.Abs(sl.QuantityChange) * (sl.UnitPrice ?? sl.MenuItem.MenuItemPrice),
                     Note = sl.Note ?? ""
                 })
                 .ToListAsync();
 
-            return orderWaste.Select(x => (x.Date.ToLocalTime(), x.ProductName, x.Quantity, x.UnitPrice, x.TotalLoss, "Sipariş", x.Note))
-                .Concat(stockWaste.Select(x => (x.Date.ToLocalTime(), x.ProductName, x.Quantity, x.UnitPrice, x.TotalLoss, "Stok Hareketi", x.Note)))
+            var stockWaste = await _context.StockLogs
+                .Where(sl => sl.SourceType == "StokKaynaklı"
+                          && sl.CreatedAt >= fromUtc && sl.CreatedAt < toUtc)
+                .Select(sl => new
+                {
+                    Date = sl.CreatedAt,
+                    ProductName = sl.MenuItem.MenuItemName,
+                    Quantity = Math.Abs(sl.QuantityChange),
+                    UnitPrice = sl.UnitPrice ?? sl.MenuItem.MenuItemPrice,
+                    TotalLoss = Math.Abs(sl.QuantityChange) * (sl.UnitPrice ?? sl.MenuItem.MenuItemPrice),
+                    Note = sl.Note ?? ""
+                })
+                .ToListAsync();
+
+            return orderWaste.Select(x => (x.Date.ToLocalTime(), x.ProductName, x.Quantity, x.UnitPrice, x.TotalLoss, "Sipariş Kaynaklı", x.Note))
+                .Concat(stockWaste.Select(x => (x.Date.ToLocalTime(), x.ProductName, x.Quantity, x.UnitPrice, x.TotalLoss, "Stok Kaynaklı", x.Note)))
                 .OrderByDescending(x => x.Item1)
                 .ToList();
         }

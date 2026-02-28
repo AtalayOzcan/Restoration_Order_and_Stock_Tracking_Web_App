@@ -118,6 +118,24 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
                 quantityChange = newStock - previousStock;
                 movementType = "Düzeltme";
             }
+            else if (dto.UpdateMode == "fire")
+            {
+                // ── 🔥 Stok Kaynaklı Fire / Zayi Çıkışı ──────────────────────
+                // BUG 1+2 DÜZELTMESİ: Depoda bozulan/kırılan ürünler bu moddan girilir.
+                // SourceType="StokKaynaklı" → fire raporuna doğru kategoride düşer.
+                if (dto.MovementQuantity == null || dto.MovementQuantity <= 0)
+                    return Json(new { success = false, message = "Fire miktarını giriniz." });
+
+                if (string.IsNullOrWhiteSpace(dto.Note))
+                    return Json(new { success = false, message = "Fire nedenini açıklamak zorunludur (örn: 'Fare kolaları delmiş')." });
+
+                quantityChange = -dto.MovementQuantity.Value;   // her zaman çıkış
+                movementType = "Çıkış";
+                newStock = previousStock + quantityChange; // eksi yönde
+
+                if (newStock < 0)
+                    return Json(new { success = false, message = "Stok sıfırın altına düşemez. Mevcut stok: " + previousStock });
+            }
             else
             {
                 if (dto.MovementQuantity == null || dto.MovementQuantity <= 0)
@@ -149,6 +167,9 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
 
             item.StockQuantity = newStock;
 
+            // ── StockLog: SourceType ve UnitPrice eklendi ─────────────────────
+            // BUG 1: "StokKaynaklı" SourceType ile fire kaydı ayrışır
+            // BUG 5: UnitPrice alanı, raporlarda doğru tutar hesabı sağlar
             _context.StockLogs.Add(new StockLog
             {
                 MenuItemId = item.MenuItemId,
@@ -157,6 +178,9 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
                 PreviousStock = previousStock,
                 NewStock = newStock,
                 Note = dto.Note?.Trim(),
+                SourceType = dto.UpdateMode == "fire" ? "StokKaynaklı" : null,
+                OrderId = null,   // stok hareketi — adisyon bağlantısı yok
+                UnitPrice = item.MenuItemPrice,
                 CreatedAt = DateTime.UtcNow
             });
 
@@ -195,7 +219,10 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Controllers
                     l.QuantityChange,
                     l.PreviousStock,
                     l.NewStock,
-                    note = l.Note ?? "—"
+                    note = l.Note ?? "—",
+                    // BUG 1: Geçmiş modalında fire türü de gösterilir
+                    sourceType = l.SourceType ?? "",
+                    orderId = l.OrderId
                 })
                 .ToListAsync();
 

@@ -12,7 +12,6 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data
         public DbSet<MenuItem> MenuItems { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<Payment> Payments { get; set; }
-
         public DbSet<StockLog> StockLogs { get; set; }
 
         public RestaurantDbContext(DbContextOptions options) : base(options) { }
@@ -48,11 +47,9 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data
                 entity.Property(m => m.MenuItemName).HasMaxLength(200).IsRequired();
                 entity.Property(m => m.MenuItemPrice).HasPrecision(10, 2).IsRequired();
                 entity.Property(m => m.StockQuantity).HasDefaultValue(0).IsRequired();
-
                 entity.Property(m => m.AlertThreshold).HasDefaultValue(0).IsRequired();
                 entity.Property(m => m.CriticalThreshold).HasDefaultValue(0).IsRequired();
                 entity.Property(m => m.CostPrice).HasPrecision(10, 2);  // nullable, no default
-
                 entity.Property(m => m.TrackStock).HasDefaultValue(false).IsRequired();
                 entity.Property(m => m.IsAvailable).HasDefaultValue(true).IsRequired();
                 entity.Property(m => m.Description).HasColumnType("text");
@@ -122,7 +119,7 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // ── YENİ: StockLog ───────────────────────────────────────
+            // ── StockLog ──────────────────────────────────────────────────────────
             modelBuilder.Entity<StockLog>(entity =>
             {
                 entity.ToTable("stock_logs");
@@ -133,6 +130,18 @@ namespace Restaurant_Order_and_Stock_Tracking_Web_App.MVC.Data
                 entity.Property(s => s.NewStock).IsRequired();
                 entity.Property(s => s.Note).HasColumnType("text");
                 entity.Property(s => s.CreatedAt).HasDefaultValueSql("NOW()").IsRequired();
+
+                // ── YENİ: Fire türü ayrıştırma alanları (Migration: AddStockLogFireFields) ──
+                // "SiparişKaynaklı" | "StokKaynaklı" | null (normal hareket)
+                entity.Property(s => s.SourceType).HasMaxLength(30);
+
+                // SiparişKaynaklı fire'larda ilgili adisyon numarası
+                entity.Property(s => s.OrderId);
+
+                // İşlem anındaki birim fiyat — raporlarda doğru tutar hesabı
+                entity.Property(s => s.UnitPrice).HasColumnType("numeric(18,2)");
+                // ──────────────────────────────────────────────────────────────────
+
                 entity.HasOne(s => s.MenuItem)
                     .WithMany()
                     .HasForeignKey(s => s.MenuItemId)

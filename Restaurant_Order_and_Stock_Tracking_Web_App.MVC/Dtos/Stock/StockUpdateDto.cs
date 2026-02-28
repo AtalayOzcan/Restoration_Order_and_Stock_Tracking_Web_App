@@ -3,7 +3,15 @@
 public class StockUpdateDto
 {
     public int MenuItemId { get; set; }
-    public string UpdateMode { get; set; } // "direct" veya "movement"
+
+    /// <summary>
+    /// "direct"   → Direkt stok değeri girişi (sayım düzeltmesi)
+    /// "movement" → Hareket bazlı giriş/çıkış (normal mal girişi, normal çıkış)
+    /// "fire"     → 🔥 Stok Kaynaklı Fire/Zayi (depoda bozulan, kırılan)
+    ///              MovementDirection her zaman "out", SourceType="StokKaynaklı" yazılır
+    /// </summary>
+    public string UpdateMode { get; set; }
+
     public int? NewStockValue { get; set; }
     public string? MovementDirection { get; set; }
     public int? MovementQuantity { get; set; }
